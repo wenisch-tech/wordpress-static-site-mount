@@ -38,6 +38,12 @@ Pages are served, but the header and footer wrapper needs a block theme. Use the
 = Why does the build need the base URL? =
 JavaScript apps such as Docusaurus embed their base URL in the bundle. The plugin does not rewrite bundles.
 
+= Is it safe? =
+A mounted build is raw HTML and JavaScript served from your own site, so deploying needs the manage_options and unfiltered_html capabilities (on multisite only super admins). Uploads are limited to allow-listed file types, unsafe paths are refused, and files are served only through WordPress. On nginx add `location ^~ /wp-content/static-sites/ { deny all; }` so the raw files are not reachable directly (Apache is handled by a generated .htaccess).
+
+= Does the plugin contact external servers? =
+No. It makes no external requests and collects no personal data.
+
 = How do I deploy from GitHub Actions? =
 Create an Application Password and POST the zipped build to `/wp-json/static-site-mount/v1/mounts/<name>/deploy`. An example workflow is in the plugin's `examples` folder.
 
@@ -48,9 +54,14 @@ Create an Application Password and POST the zipped build to `/wp-json/static-sit
 3. Mount details: where it lives, look and feel, search engines, deploy commands and indexed pages.
 4. The About page with an environment check and the REST and WP-CLI reference.
 
+== Source code ==
+
+The complete source, the logo and banner generators and the Docker test setup are on GitHub: https://github.com/wenisch-tech/wordpress-static-site-mount
+
 == Changelog ==
 
 = 0.2.0 =
+* Security: managing mounts and deploying require manage_options and unfiltered_html; mount folders are confined to wp-content/static-sites; archives are limited by the real unpacked size, executable-looking names (shell.php.png) are refused; atomic deploy lock; more reserved URL prefixes; overlapping prefixes are refused.
 * Own admin menu "Static Sites" with Mounts list, per-mount detail view, enable/disable and an About page.
 
 = 0.1.1 =

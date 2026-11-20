@@ -47,7 +47,7 @@ class SSM_CLI {
 	 * : docusaurus or generic.
 	 *
 	 * [--dir=<dir>]
-	 * : Folder (absolute, or relative to wp-content/static-sites).
+	 * : Folder name inside wp-content/static-sites (absolute paths need the ssm_allow_external_dirs filter).
 	 *
 	 * [--header-offset=<px>]
 	 * : Space for a fixed theme header.

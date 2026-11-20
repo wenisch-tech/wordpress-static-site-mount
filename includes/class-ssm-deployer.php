@@ -27,6 +27,20 @@ class SSM_Deployer {
 		rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 	}
 
+	/** Executable-looking names are refused even with an allowed last extension (shell.php.png, x.phtml.css ...). */
+	private static function is_dangerous_name( $name ) {
+		return (bool) preg_match( '/\.(php[0-9]*|phtml|pht|phar|cgi|pl|py|rb|sh|asp|aspx|jsp|htaccess)(\.|$)/i', basename( $name ) );
+	}
+
+	/** The mount folder must sit inside the base folder: a deploy renames and deletes it. */
+	private static function dir_is_safe( $dir ) {
+		if ( apply_filters( 'ssm_allow_external_dirs', false ) ) {
+			return '' !== $dir && '/' !== $dir;
+		}
+		$base = SSM_Mounts::base_dir();
+		return 0 === strpos( $dir, $base . '/' ) && false === strpos( $dir, '..' ) && strlen( $dir ) > strlen( $base ) + 1;
+	}
+
 	/**
 	 * Normalize a path from an archive. Returns null for entries that must be skipped, WP_Error for hostile ones.
 	 */
@@ -92,6 +106,10 @@ class SSM_Deployer {
 		}
 
 		$dir = SSM_Mounts::dir( $m );
+		if ( ! self::dir_is_safe( $dir ) ) {
+			$zip->close();
+			return new WP_Error( 'ssm_dir', __( 'The mount folder is outside the allowed location.', 'static-site-mount' ) );
+		}
 		SSM_Mounts::prepare_base_dir();
 		wp_mkdir_p( dirname( $dir ) );
 		$tmp = $dir . '.ssm-new-' . wp_generate_password( 6, false );
@@ -102,6 +120,7 @@ class SSM_Deployer {
 		}
 
 		$written = 0;
+		$actual  = 0;
 		foreach ( $entries as $i => $name ) {
 			if ( '' !== $strip && 0 === strpos( $name, $strip ) ) {
 				$name = substr( $name, strlen( $strip ) );
@@ -110,7 +129,7 @@ class SSM_Deployer {
 				continue; // dotfiles such as .nojekyll or .DS_Store are ignored.
 			}
 			$ext = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
-			if ( ! isset( $types[ $ext ] ) ) {
+			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $name ) ) {
 				$zip->close();
 				self::rrmdir( $tmp );
 				return new WP_Error( 'ssm_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $name ) );
@@ -124,9 +143,16 @@ class SSM_Deployer {
 				self::rrmdir( $tmp );
 				return new WP_Error( 'ssm_write', __( 'Could not write extracted files.', 'static-site-mount' ) );
 			}
-			stream_copy_to_stream( $in, $out );
+			// The size in a zip header can be forged: count what is really written.
+			$copied = stream_copy_to_stream( $in, $out, self::MAX_BYTES - $actual + 1 );
 			fclose( $in ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 			fclose( $out ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			$actual += (int) $copied;
+			if ( $actual > self::MAX_BYTES ) {
+				$zip->close();
+				self::rrmdir( $tmp );
+				return new WP_Error( 'ssm_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
+			}
 			$written++;
 		}
 		$zip->close();
@@ -143,6 +169,9 @@ class SSM_Deployer {
 		}
 		$types = SSM_Server::mime_types();
 		$dir   = SSM_Mounts::dir( $m );
+		if ( ! self::dir_is_safe( $dir ) ) {
+			return new WP_Error( 'ssm_dir', __( 'The mount folder is outside the allowed location.', 'static-site-mount' ) );
+		}
 		SSM_Mounts::prepare_base_dir();
 		wp_mkdir_p( dirname( $dir ) );
 		$tmp     = $dir . '.ssm-new-' . wp_generate_password( 6, false );
@@ -156,7 +185,7 @@ class SSM_Deployer {
 				continue;
 			}
 			$ext = strtolower( pathinfo( $rel, PATHINFO_EXTENSION ) );
-			if ( ! isset( $types[ $ext ] ) ) {
+			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $rel ) ) {
 				self::rrmdir( $tmp );
 				return new WP_Error( 'ssm_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $rel ) );
 			}

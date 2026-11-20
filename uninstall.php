@@ -11,7 +11,7 @@ $mounts = get_option( 'ssm_mounts', array() );
 if ( is_array( $mounts ) ) {
 	foreach ( array_keys( $mounts ) as $slug ) {
 		delete_option( 'ssm_index_' . $slug );
-		delete_transient( 'ssm_lock_' . $slug );
+		delete_option( 'ssm_lock_' . $slug );
 	}
 }
 delete_option( 'ssm_mounts' );

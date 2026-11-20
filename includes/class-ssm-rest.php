@@ -15,7 +15,7 @@ class SSM_Rest {
 	}
 
 	public static function can() {
-		return current_user_can( 'manage_options' );
+		return SSM_Mounts::can_manage();
 	}
 
 	public static function routes() {
@@ -61,8 +61,9 @@ class SSM_Rest {
 					if ( is_wp_error( $m ) ) {
 						return new WP_Error( $m->get_error_code(), $m->get_error_message(), array( 'status' => 400 ) );
 					}
-					if ( get_page_by_path( $m['prefix'] ) ) {
-						return new WP_Error( 'ssm_page_exists', __( 'A WordPress page already uses this URL.', 'static-site-mount' ), array( 'status' => 409 ) );
+					$conflict = SSM_Mounts::conflict( $m );
+					if ( '' !== $conflict ) {
+						return new WP_Error( 'ssm_conflict', $conflict, array( 'status' => 409 ) );
 					}
 					$all               = SSM_Mounts::all();
 					$all[ $m['slug'] ] = $m;
@@ -85,7 +86,7 @@ class SSM_Rest {
 						return new WP_Error( 'ssm_unknown', __( 'Unknown mount.', 'static-site-mount' ), array( 'status' => 404 ) );
 					}
 					$r = SSM_Indexer::reindex( $m );
-					return is_wp_error( $r ) ? $r : $r;
+					return is_wp_error( $r ) ? new WP_Error( $r->get_error_code(), $r->get_error_message(), array( 'status' => 422 ) ) : $r;
 				},
 			)
 		);
@@ -109,15 +110,14 @@ class SSM_Rest {
 		if ( ! $m ) {
 			return new WP_Error( 'ssm_unknown', __( 'Unknown mount.', 'static-site-mount' ), array( 'status' => 404 ) );
 		}
-		$lock = 'ssm_lock_' . $m['slug'];
-		if ( get_transient( $lock ) ) {
+		$lock = self::lock( $m['slug'] );
+		if ( ! $lock ) {
 			return new WP_Error( 'ssm_busy', __( 'A deploy for this mount is already running.', 'static-site-mount' ), array( 'status' => 409 ) );
 		}
-		set_transient( $lock, 1, 5 * MINUTE_IN_SECONDS );
 		// Release the lock even if PHP dies mid-deploy (fatal error, timeout), so the next run is not blocked.
 		register_shutdown_function(
 			function () use ( $lock ) {
-				delete_transient( $lock );
+				delete_option( $lock );
 			}
 		);
 
@@ -125,11 +125,11 @@ class SSM_Rest {
 		$cleanup = false;
 		$files   = $req->get_file_params();
 		if ( ! empty( $files['file'] ) && isset( $files['file']['error'] ) && UPLOAD_ERR_OK !== (int) $files['file']['error'] ) {
-			delete_transient( $lock );
+			delete_option( $lock );
 			return new WP_Error( 'ssm_upload', self::upload_error( (int) $files['file']['error'] ), array( 'status' => 413 ) );
 		}
 		if ( empty( $files ) && '' === $req->get_body() && isset( $_SERVER['CONTENT_LENGTH'] ) && (int) $_SERVER['CONTENT_LENGTH'] > 0 ) {
-			delete_transient( $lock );
+			delete_option( $lock );
 			return new WP_Error( 'ssm_upload', self::upload_error( UPLOAD_ERR_INI_SIZE ), array( 'status' => 413 ) );
 		}
 		if ( ! empty( $files['file']['tmp_name'] ) && is_uploaded_file( $files['file']['tmp_name'] ) ) {
@@ -137,12 +137,12 @@ class SSM_Rest {
 		} else {
 			$body = $req->get_body();
 			if ( '' === $body ) {
-				delete_transient( $lock );
+				delete_option( $lock );
 				return new WP_Error( 'ssm_empty', __( 'Send the zip as multipart field "file" or as the request body.', 'static-site-mount' ), array( 'status' => 400 ) );
 			}
 			$tmp = tempnam( get_temp_dir(), 'ssm-' );
 			if ( false === $tmp || false === file_put_contents( $tmp, $body ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
-				delete_transient( $lock );
+				delete_option( $lock );
 				return new WP_Error( 'ssm_tmp', __( 'Could not store the upload.', 'static-site-mount' ), array( 'status' => 500 ) );
 			}
 			$cleanup = true;
@@ -152,13 +152,30 @@ class SSM_Rest {
 		if ( $cleanup && $tmp ) {
 			unlink( $tmp ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		}
-		delete_transient( $lock );
+		delete_option( $lock );
 
 		if ( is_wp_error( $res ) ) {
 			return new WP_Error( $res->get_error_code(), $res->get_error_message(), array( 'status' => 422 ) );
 		}
 		$res['url'] = SSM_Mounts::url( $m );
 		return $res;
+	}
+
+	/**
+	 * Atomic lock: add_option() fails if the row exists. A lock older than 5 minutes is treated as stale.
+	 *
+	 * @return string Option name of the lock, or '' if a deploy is running.
+	 */
+	private static function lock( $slug ) {
+		$name = 'ssm_lock_' . $slug;
+		if ( add_option( $name, time(), '', 'no' ) ) {
+			return $name;
+		}
+		if ( time() - (int) get_option( $name ) > 5 * MINUTE_IN_SECONDS ) {
+			delete_option( $name );
+			return add_option( $name, time(), '', 'no' ) ? $name : '';
+		}
+		return '';
 	}
 
 	private static function upload_error( $code ) {

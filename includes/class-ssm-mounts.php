@@ -12,7 +12,42 @@ class SSM_Mounts {
 	const OPTION = 'ssm_mounts';
 
 	/** Prefixes that must never be mounted. */
-	const RESERVED = array( 'wp-admin', 'wp-content', 'wp-includes', 'wp-json', 'wp-login.php', 'feed', 'xmlrpc.php' );
+	const RESERVED = array(
+		'wp-admin', 'wp-content', 'wp-includes', 'wp-json', 'wp-login.php', 'wp-cron.php', 'wp-signup.php', 'wp-activate.php',
+		'wp-comments-post.php', 'wp-trackback.php', 'wp-links-opml.php', 'wp-register.php', 'wp-mail.php', 'wp-load.php',
+		'wp-sitemap.xml', 'sitemap.xml', 'sitemap_index.xml', 'robots.txt', 'favicon.ico', 'ssm-pages.xml', 'index.php',
+		'feed', 'comments', 'embed', 'xmlrpc.php',
+	);
+
+	/**
+	 * Who may create mounts and deploy builds. A build is raw HTML and JavaScript served from this site's own origin,
+	 * so this needs the same trust as unfiltered_html (multisite site admins do not have it).
+	 */
+	public static function can_manage() {
+		return current_user_can( 'manage_options' ) && current_user_can( 'unfiltered_html' );
+	}
+
+	/**
+	 * Why a mount cannot use this prefix: another mount (same or nested prefix) or a WordPress page. Empty string if free.
+	 */
+	public static function conflict( array $m ) {
+		foreach ( self::all() as $slug => $other ) {
+			if ( $slug === $m['slug'] || empty( $other['prefix'] ) ) {
+				continue;
+			}
+			$a = $other['prefix'];
+			$b = $m['prefix'];
+			if ( $a === $b || 0 === strpos( $b, $a . '/' ) || 0 === strpos( $a, $b . '/' ) ) {
+				/* translators: %s name of the other mount */
+				return sprintf( __( 'The URL prefix overlaps with the mount "%s".', 'static-site-mount' ), $slug );
+			}
+		}
+		if ( get_page_by_path( $m['prefix'] ) ) {
+			/* translators: %s URL prefix */
+			return sprintf( __( 'A WordPress page already uses /%s/. Choose another prefix.', 'static-site-mount' ), $m['prefix'] );
+		}
+		return '';
+	}
 
 	/**
 	 * Presets describe how a given generator's output is wrapped.
@@ -135,9 +170,16 @@ class SSM_Mounts {
 		}
 		$m['prefix'] = $prefix;
 
-		$dir = trim( (string) $m['dir'] );
-		if ( '' !== $dir && ( false !== strpos( $dir, '..' ) || false !== strpos( $dir, "\0" ) ) ) {
-			return new WP_Error( 'ssm_dir', __( 'The folder must not contain "..".', 'static-site-mount' ) );
+		// The folder is always inside the base folder (wp-content/static-sites): a deploy replaces it, so it must never point elsewhere.
+		// Use the ssm_base_dir filter to move the base folder, or ssm_allow_external_dirs to allow absolute paths (WP-CLI use).
+		$dir = trim( (string) $m['dir'], " \t\n\r\0\x0B/" );
+		if ( '' !== $dir ) {
+			$absolute = 0 === strpos( (string) $m['dir'], '/' ) || preg_match( '#^[A-Za-z]:[\\\\/]#', (string) $m['dir'] );
+			if ( $absolute && apply_filters( 'ssm_allow_external_dirs', false ) ) {
+				$dir = untrailingslashit( (string) $m['dir'] );
+			} elseif ( $absolute || ! preg_match( '#^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$#', $dir ) || false !== strpos( $dir, '..' ) ) {
+				return new WP_Error( 'ssm_dir', __( 'The folder must be a plain name inside wp-content/static-sites (letters, digits, dash, underscore).', 'static-site-mount' ) );
+			}
 		}
 		$m['dir'] = $dir;
 
@@ -190,7 +232,11 @@ class SSM_Mounts {
 			return self::base_dir() . '/' . $m['slug'];
 		}
 		if ( 0 === strpos( $dir, '/' ) || preg_match( '#^[A-Za-z]:[\\\\/]#', $dir ) ) {
-			return untrailingslashit( $dir );
+			// Absolute folders only when explicitly allowed; otherwise fall back to the default location.
+			return apply_filters( 'ssm_allow_external_dirs', false ) ? untrailingslashit( $dir ) : self::base_dir() . '/' . $m['slug'];
+		}
+		if ( preg_match( '#(^|/)\.#', $dir ) ) {
+			return self::base_dir() . '/' . $m['slug'];
 		}
 		return self::base_dir() . '/' . trim( $dir, '/' );
 	}

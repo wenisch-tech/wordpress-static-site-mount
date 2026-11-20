@@ -58,8 +58,8 @@ class SSM_Admin {
 	}
 
 	private static function guard() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Not allowed.', 'static-site-mount' ) );
+		if ( ! SSM_Mounts::can_manage() ) {
+			wp_die( esc_html__( 'Not allowed. Managing mounts needs the manage_options and unfiltered_html capabilities, because a mounted build can contain JavaScript.', 'static-site-mount' ), '', array( 'response' => 403 ) );
 		}
 	}
 
@@ -108,13 +108,9 @@ class SSM_Admin {
 		if ( '' === $original && isset( $all[ $m['slug'] ] ) ) {
 			self::back( __( 'A mount with this name already exists.', 'static-site-mount' ), 'error', array( 'action' => 'new' ) );
 		}
-		foreach ( $all as $slug => $other ) {
-			if ( $slug !== $m['slug'] && isset( $other['prefix'] ) && $other['prefix'] === $m['prefix'] ) {
-				self::back( __( 'Another mount already uses this URL prefix.', 'static-site-mount' ), 'error', '' !== $original ? array( 'mount' => $original ) : array( 'action' => 'new' ) );
-			}
-		}
-		if ( get_page_by_path( $m['prefix'] ) ) {
-			self::back( sprintf( /* translators: %s prefix */ __( 'A WordPress page already uses /%s/. Choose another prefix.', 'static-site-mount' ), $m['prefix'] ), 'error', '' !== $original ? array( 'mount' => $original ) : array( 'action' => 'new' ) );
+		$conflict = SSM_Mounts::conflict( $m );
+		if ( '' !== $conflict ) {
+			self::back( $conflict, 'error', '' !== $original ? array( 'mount' => $original ) : array( 'action' => 'new' ) );
 		}
 		$all[ $m['slug'] ] = $m;
 		SSM_Mounts::save_all( $all );
