@@ -1,1 +1,1 @@
-document.documentElement.setAttribute('data-ssm-js','ran');
+document.documentElement.setAttribute('data-stasimo-js','ran');

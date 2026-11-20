@@ -7,12 +7,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class SSM_Indexer {
+class Stasimo_Indexer {
 
 	const MAX_FILES = 20000;
 
 	public static function option_name( $slug ) {
-		return 'ssm_index_' . $slug;
+		return 'stasimo_index_' . $slug;
 	}
 
 	/**
@@ -35,9 +35,9 @@ class SSM_Indexer {
 	 * @return array|WP_Error {count:int, time:int}
 	 */
 	public static function reindex( array $m ) {
-		$dir = SSM_Mounts::dir( $m );
+		$dir = Stasimo_Mounts::dir( $m );
 		if ( ! is_dir( $dir ) ) {
-			return new WP_Error( 'ssm_nodir', sprintf( /* translators: %s folder */ __( 'Folder not found: %s', 'static-site-mount' ), $dir ) );
+			return new WP_Error( 'stasimo_nodir', sprintf( /* translators: %s folder */ __( 'Folder not found: %s', 'static-site-mount' ), $dir ) );
 		}
 		$real = realpath( $dir );
 		$list = array();
@@ -64,7 +64,7 @@ class SSM_Indexer {
 			if ( preg_match( '/<head[^>]*>(.*?)<\/head>/is', $head, $hm ) ) {
 				$head = $hm[1];
 			}
-			$seo  = SSM_HTML::seo( $head );
+			$seo  = Stasimo_HTML::seo( $head );
 			$list[ self::url_path( $rel ) ] = array(
 				't' => $seo['title'],
 				'd' => $seo['description'],

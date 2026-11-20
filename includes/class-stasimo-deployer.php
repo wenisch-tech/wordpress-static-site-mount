@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class SSM_Deployer {
+class Stasimo_Deployer {
 
 	const MAX_FILES = 50000;
 	const MAX_BYTES = 536870912; // 512 MB unpacked.
@@ -34,10 +34,10 @@ class SSM_Deployer {
 
 	/** The mount folder must sit inside the base folder: a deploy renames and deletes it. */
 	private static function dir_is_safe( $dir ) {
-		if ( apply_filters( 'ssm_allow_external_dirs', false ) ) {
+		if ( apply_filters( 'stasimo_allow_external_dirs', false ) ) {
 			return '' !== $dir && '/' !== $dir;
 		}
-		$base = SSM_Mounts::base_dir();
+		$base = Stasimo_Mounts::base_dir();
 		return 0 === strpos( $dir, $base . '/' ) && false === strpos( $dir, '..' ) && strlen( $dir ) > strlen( $base ) + 1;
 	}
 
@@ -47,11 +47,11 @@ class SSM_Deployer {
 	private static function safe_name( $name ) {
 		$name = str_replace( '\\', '/', $name );
 		if ( false !== strpos( $name, "\0" ) || preg_match( '#^([A-Za-z]:|/)#', $name ) ) {
-			return new WP_Error( 'ssm_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'static-site-mount' ), $name ) );
+			return new WP_Error( 'stasimo_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'static-site-mount' ), $name ) );
 		}
 		foreach ( explode( '/', $name ) as $seg ) {
 			if ( '..' === $seg ) {
-				return new WP_Error( 'ssm_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'static-site-mount' ), $name ) );
+				return new WP_Error( 'stasimo_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'static-site-mount' ), $name ) );
 			}
 		}
 		return $name;
@@ -64,14 +64,14 @@ class SSM_Deployer {
 	 */
 	public static function deploy_zip( array $m, $zip_path ) {
 		if ( ! class_exists( 'ZipArchive' ) ) {
-			return new WP_Error( 'ssm_nozip', __( 'The PHP zip extension is not available on this server.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_nozip', __( 'The PHP zip extension is not available on this server.', 'static-site-mount' ) );
 		}
 		$zip = new ZipArchive();
 		if ( true !== $zip->open( $zip_path ) ) {
-			return new WP_Error( 'ssm_badzip', __( 'The uploaded file is not a valid zip archive.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_badzip', __( 'The uploaded file is not a valid zip archive.', 'static-site-mount' ) );
 		}
 
-		$types   = SSM_Server::mime_types();
+		$types   = Stasimo_Server::mime_types();
 		$entries = array();
 		$total   = 0;
 		for ( $i = 0; $i < $zip->numFiles; $i++ ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName
@@ -87,7 +87,7 @@ class SSM_Deployer {
 			$total += (int) $st['size'];
 			if ( count( $entries ) >= self::MAX_FILES || $total > self::MAX_BYTES ) {
 				$zip->close();
-				return new WP_Error( 'ssm_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
+				return new WP_Error( 'stasimo_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
 			}
 			$entries[ $i ] = $name;
 		}
@@ -105,18 +105,18 @@ class SSM_Deployer {
 			}
 		}
 
-		$dir = SSM_Mounts::dir( $m );
+		$dir = Stasimo_Mounts::dir( $m );
 		if ( ! self::dir_is_safe( $dir ) ) {
 			$zip->close();
-			return new WP_Error( 'ssm_dir', __( 'The mount folder is outside the allowed location.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_dir', __( 'The mount folder is outside the allowed location.', 'static-site-mount' ) );
 		}
-		SSM_Mounts::prepare_base_dir();
+		Stasimo_Mounts::prepare_base_dir();
 		wp_mkdir_p( dirname( $dir ) );
-		$tmp = $dir . '.ssm-new-' . wp_generate_password( 6, false );
-		$old = $dir . '.ssm-old-' . wp_generate_password( 6, false );
+		$tmp = $dir . '.stasimo-new-' . wp_generate_password( 6, false );
+		$old = $dir . '.stasimo-old-' . wp_generate_password( 6, false );
 		if ( ! wp_mkdir_p( $tmp ) ) {
 			$zip->close();
-			return new WP_Error( 'ssm_mkdir', __( 'Could not create a temporary folder.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_mkdir', __( 'Could not create a temporary folder.', 'static-site-mount' ) );
 		}
 
 		$written = 0;
@@ -132,7 +132,7 @@ class SSM_Deployer {
 			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $name ) ) {
 				$zip->close();
 				self::rrmdir( $tmp );
-				return new WP_Error( 'ssm_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $name ) );
+				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $name ) );
 			}
 			$target = $tmp . '/' . $name;
 			wp_mkdir_p( dirname( $target ) );
@@ -141,7 +141,7 @@ class SSM_Deployer {
 			if ( ! $in || ! $out ) {
 				$zip->close();
 				self::rrmdir( $tmp );
-				return new WP_Error( 'ssm_write', __( 'Could not write extracted files.', 'static-site-mount' ) );
+				return new WP_Error( 'stasimo_write', __( 'Could not write extracted files.', 'static-site-mount' ) );
 			}
 			// The size in a zip header can be forged: count what is really written.
 			$copied = stream_copy_to_stream( $in, $out, self::MAX_BYTES - $actual + 1 );
@@ -151,7 +151,7 @@ class SSM_Deployer {
 			if ( $actual > self::MAX_BYTES ) {
 				$zip->close();
 				self::rrmdir( $tmp );
-				return new WP_Error( 'ssm_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
+				return new WP_Error( 'stasimo_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
 			}
 			$written++;
 		}
@@ -165,17 +165,17 @@ class SSM_Deployer {
 	public static function deploy_dir( array $m, $src ) {
 		$src = realpath( $src );
 		if ( ! $src || ! is_dir( $src ) ) {
-			return new WP_Error( 'ssm_src', __( 'Source folder not found.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_src', __( 'Source folder not found.', 'static-site-mount' ) );
 		}
-		$types = SSM_Server::mime_types();
-		$dir   = SSM_Mounts::dir( $m );
+		$types = Stasimo_Server::mime_types();
+		$dir   = Stasimo_Mounts::dir( $m );
 		if ( ! self::dir_is_safe( $dir ) ) {
-			return new WP_Error( 'ssm_dir', __( 'The mount folder is outside the allowed location.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_dir', __( 'The mount folder is outside the allowed location.', 'static-site-mount' ) );
 		}
-		SSM_Mounts::prepare_base_dir();
+		Stasimo_Mounts::prepare_base_dir();
 		wp_mkdir_p( dirname( $dir ) );
-		$tmp     = $dir . '.ssm-new-' . wp_generate_password( 6, false );
-		$old     = $dir . '.ssm-old-' . wp_generate_password( 6, false );
+		$tmp     = $dir . '.stasimo-new-' . wp_generate_password( 6, false );
+		$old     = $dir . '.stasimo-old-' . wp_generate_password( 6, false );
 		$written = 0;
 		wp_mkdir_p( $tmp );
 		$it = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $src, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::LEAVES_ONLY );
@@ -187,7 +187,7 @@ class SSM_Deployer {
 			$ext = strtolower( pathinfo( $rel, PATHINFO_EXTENSION ) );
 			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $rel ) ) {
 				self::rrmdir( $tmp );
-				return new WP_Error( 'ssm_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $rel ) );
+				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $rel ) );
 			}
 			wp_mkdir_p( dirname( $tmp . '/' . $rel ) );
 			copy( $f->getPathname(), $tmp . '/' . $rel ); // phpcs:ignore WordPress.WP.AlternativeFunctions
@@ -199,25 +199,25 @@ class SSM_Deployer {
 	private static function swap( array $m, $dir, $tmp, $old, $written ) {
 		if ( ! is_file( $tmp . '/index.html' ) ) {
 			self::rrmdir( $tmp );
-			return new WP_Error( 'ssm_noindex', __( 'The build has no index.html at its top level, nothing was changed.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_noindex', __( 'The build has no index.html at its top level, nothing was changed.', 'static-site-mount' ) );
 		}
 		if ( is_dir( $dir ) && ! rename( $dir, $old ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
 			self::rrmdir( $tmp );
-			return new WP_Error( 'ssm_swap', __( 'Could not replace the existing folder.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_swap', __( 'Could not replace the existing folder.', 'static-site-mount' ) );
 		}
 		if ( ! rename( $tmp, $dir ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
 			if ( is_dir( $old ) ) {
 				rename( $old, $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 			}
 			self::rrmdir( $tmp );
-			return new WP_Error( 'ssm_swap', __( 'Could not activate the new build.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_swap', __( 'Could not activate the new build.', 'static-site-mount' ) );
 		}
 		self::rrmdir( $old );
-		$idx = SSM_Indexer::reindex( $m );
+		$idx = Stasimo_Indexer::reindex( $m );
 		if ( is_wp_error( $idx ) ) {
 			return $idx;
 		}
-		do_action( 'ssm_deployed', $m, $idx );
+		do_action( 'stasimo_deployed', $m, $idx );
 		return array(
 			'files' => $written,
 			'pages' => $idx['count'],

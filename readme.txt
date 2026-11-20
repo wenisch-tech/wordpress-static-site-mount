@@ -4,7 +4,7 @@ Tags: static site, documentation, docusaurus, mkdocs, seo
 Requires at least: 5.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -28,18 +28,18 @@ Works with any generator that outputs HTML files. A Docusaurus preset is include
 1. Upload the plugin and activate it.
 2. Build your static site with the mount prefix as its base URL (Docusaurus: `baseUrl: '/docs/my-project/'`).
 3. Go to Static Sites > Mounts and add a mount.
-4. Deploy the build with the REST endpoint, WP-CLI, or by copying files into `wp-content/static-sites/<name>/` and pressing Re-index.
+4. Deploy the build with the REST endpoint, WP-CLI, or by copying files into `wp-content/uploads/static-sites/<name>/` and pressing Re-index.
 
 == Frequently Asked Questions ==
 
 = Does it work with classic themes? =
-Pages are served, but the header and footer wrapper needs a block theme. Use the `ssm_header_html` and `ssm_footer_html` filters for classic themes.
+Pages are served, but the header and footer wrapper needs a block theme. Use the `stasimo_header_html` and `stasimo_footer_html` filters for classic themes.
 
 = Why does the build need the base URL? =
 JavaScript apps such as Docusaurus embed their base URL in the bundle. The plugin does not rewrite bundles.
 
 = Is it safe? =
-A mounted build is raw HTML and JavaScript served from your own site, so deploying needs the manage_options and unfiltered_html capabilities (on multisite only super admins). Uploads are limited to allow-listed file types, unsafe paths are refused, and files are served only through WordPress. On nginx add `location ^~ /wp-content/static-sites/ { deny all; }` so the raw files are not reachable directly (Apache is handled by a generated .htaccess).
+A mounted build is raw HTML and JavaScript served from your own site, so deploying needs the manage_options and unfiltered_html capabilities (on multisite only super admins). Uploads are limited to allow-listed file types, unsafe paths are refused, and files are served only through WordPress. On nginx add `location ^~ /wp-content/uploads/static-sites/ { deny all; }` so the raw files are not reachable directly (Apache is handled by a generated .htaccess).
 
 = Does the plugin contact external servers? =
 No. It makes no external requests and collects no personal data.
@@ -60,8 +60,12 @@ The complete source, the logo and banner generators and the Docker test setup ar
 
 == Changelog ==
 
+= 0.3.0 =
+* Mounts are stored in the uploads folder (uploads/static-sites). An existing wp-content/static-sites folder keeps being used.
+* Internal prefix renamed from ssm to stasimo (options, hooks, CSS classes, sitemap URL /stasimo-pages.xml). Stored settings are moved automatically.
+
 = 0.2.0 =
-* Security: managing mounts and deploying require manage_options and unfiltered_html; mount folders are confined to wp-content/static-sites; archives are limited by the real unpacked size, executable-looking names (shell.php.png) are refused; atomic deploy lock; more reserved URL prefixes; overlapping prefixes are refused.
+* Security: managing mounts and deploying require manage_options and unfiltered_html; mount folders are confined to the static-sites folder in uploads; archives are limited by the real unpacked size, executable-looking names (shell.php.png) are refused; atomic deploy lock; more reserved URL prefixes; overlapping prefixes are refused.
 * Own admin menu "Static Sites" with Mounts list, per-mount detail view, enable/disable and an About page.
 
 = 0.1.1 =

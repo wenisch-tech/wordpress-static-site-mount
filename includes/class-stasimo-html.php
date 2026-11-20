@@ -10,7 +10,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class SSM_HTML {
+class Stasimo_HTML {
 
 	/**
 	 * Split a full document into its parts.
@@ -101,7 +101,7 @@ class SSM_HTML {
 		$head = preg_replace_callback(
 			'/<meta\s[^>]*>/is',
 			function ( $m ) {
-				$a    = SSM_HTML::attrs( $m[0] );
+				$a    = Stasimo_HTML::attrs( $m[0] );
 				$name = isset( $a['name'] ) ? strtolower( $a['name'] ) : ( isset( $a['property'] ) ? strtolower( $a['property'] ) : '' );
 				if ( isset( $a['charset'] ) || isset( $a['http-equiv'] ) ) {
 					return '';
@@ -165,7 +165,7 @@ class SSM_HTML {
 		}
 		$dom  = new DOMDocument();
 		$prev = libxml_use_internal_errors( true );
-		$dom->loadHTML( '<?xml encoding="UTF-8"><div id="ssm-root">' . $fragment . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+		$dom->loadHTML( '<?xml encoding="UTF-8"><div id="stasimo-root">' . $fragment . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
 		libxml_clear_errors();
 		libxml_use_internal_errors( $prev );
 		$xp    = new DOMXPath( $dom );
@@ -177,7 +177,7 @@ class SSM_HTML {
 				}
 			}
 		}
-		$root = $dom->getElementById( 'ssm-root' );
+		$root = $dom->getElementById( 'stasimo-root' );
 		if ( ! $root ) {
 			return $fragment;
 		}

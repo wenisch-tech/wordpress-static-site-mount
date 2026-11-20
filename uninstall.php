@@ -7,12 +7,16 @@
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
-$mounts = get_option( 'ssm_mounts', array() );
-if ( is_array( $mounts ) ) {
-	foreach ( array_keys( $mounts ) as $slug ) {
-		delete_option( 'ssm_index_' . $slug );
-		delete_option( 'ssm_lock_' . $slug );
+$stasimo_mounts = get_option( 'stasimo_mounts', array() );
+if ( is_array( $stasimo_mounts ) ) {
+	foreach ( array_keys( $stasimo_mounts ) as $stasimo_slug ) {
+		delete_option( 'stasimo_index_' . $stasimo_slug );
+		delete_option( 'stasimo_lock_' . $stasimo_slug );
 	}
 }
+delete_option( 'stasimo_mounts' );
+delete_option( 'stasimo_rules_hash' );
+
+// Leftovers of versions before 0.3.0.
 delete_option( 'ssm_mounts' );
 delete_option( 'ssm_rules_hash' );

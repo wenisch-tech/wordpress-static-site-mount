@@ -1,26 +1,33 @@
 #!/usr/bin/env python3
-"""Draws the Static Site Mount logo: three pages drop onto a base plate ("mounted"), then the top page fills in.
-Outputs static PNGs and animated GIFs into assets/. Needs Pillow.  Usage: python3 make_logo.py"""
+"""Draws the Static Site Mount logo: a theme header and footer with an empty slot between them,
+and a page sliding into that slot. Writes static PNGs and animated GIFs into assets/. Needs Pillow."""
 import math, os
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageChops
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-S = 512            # design space
-SS = 3             # supersampling
-BG1, BG2 = (59, 108, 246), (28, 45, 128)   # warm blue -> deep indigo
-WHITE = (255, 255, 255)
+S, SS = 512, 3
+BG1, BG2 = (59, 108, 246), (24, 38, 112)
+ACCENT = (59, 108, 246)
 
-def ease_out_back(t):
-    c1, c3 = 1.4, 2.4
-    return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2
+# geometry (design space 512)
+X0, X1 = 84, 428
+HEAD = (100, 160)
+SLOT = (176, 336)
+FOOT = (352, 412)
+
 
 def clamp(x): return max(0.0, min(1.0, x))
 def seg(t, a, b): return clamp((t - a) / (b - a))
+def out_back(t):
+    c1, c3 = 1.2, 2.2
+    return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2
+def out_cubic(t): return 1 - (1 - t) ** 3
+
 
 def gradient():
-    img = Image.new('RGB', (S * SS, S * SS))
-    px = img.load()
     n = S * SS
+    img = Image.new('RGB', (n, n))
+    px = img.load()
     for y in range(n):
         for x in range(n):
             k = (x + y) / (2 * n)
@@ -28,12 +35,31 @@ def gradient():
     return img
 GRAD = gradient()
 
-def rr(d, box, r, fill, alpha=255):
-    x0, y0, x1, y1 = [v * SS for v in box]
-    d.rounded_rectangle((x0, y0, x1, y1), radius=r * SS, fill=fill + (alpha,) if len(fill) == 3 else fill)
+
+def rrect(d, x0, y0, x1, y1, r, fill):
+    d.rounded_rectangle((x0 * SS, y0 * SS, x1 * SS, y1 * SS), radius=r * SS, fill=fill)
+
+
+def dashed_slot(d, alpha):
+    """Dashed outline of the empty slot (straight edges only)."""
+    col = (255, 255, 255, alpha)
+    w = 3 * SS
+    dash, gap = 14, 9
+    x = X0 + 16
+    while x < X1 - 16:
+        e = min(x + dash, X1 - 16)
+        for y in (SLOT[0], SLOT[1]):
+            d.line((x * SS, y * SS, e * SS, y * SS), fill=col, width=w)
+        x += dash + gap
+    y = SLOT[0] + 16
+    while y < SLOT[1] - 16:
+        e = min(y + dash, SLOT[1] - 16)
+        for x in (X0, X1):
+            d.line((x * SS, y * SS, x * SS, e * SS), fill=col, width=w)
+        y += dash + gap
+
 
 def frame(t, bg=True):
-    """t in 0..1 over the loop."""
     base = Image.new('RGBA', (S * SS, S * SS), (0, 0, 0, 0))
     if bg:
         mask = Image.new('L', base.size, 0)
@@ -41,72 +67,78 @@ def frame(t, bg=True):
         base.paste(GRAD, (0, 0), mask)
     layer = Image.new('RGBA', base.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
+    fade = 1 - seg(t, 0.93, 1.0)
 
-    fade = 1 - seg(t, 0.93, 1.0)          # fade out at loop end
-    # glow pulse when the last page lands
-    pulse = math.sin(math.pi * seg(t, 0.52, 0.72))
-    if pulse > 0.02:
-        rr(d, (96 - 8 * pulse, 378 - 4 * pulse, 416 + 8 * pulse, 404 + 4 * pulse), 18, (255, 255, 255), int(70 * pulse))
-    # base plate (the mount)
-    plate_a = int(255 * clamp(seg(t, 0.0, 0.10)) * fade)
-    rr(d, (96, 378, 416, 404), 13, (255, 255, 255), int(plate_a * .95))
-    # three pages, bottom to top, dropping in sequence
-    pages = [  # final y, width inset, opacity
-        (342, 56, 130),
-        (318, 40, 200),
-        (118, 0, 255),
-    ]
-    starts = [0.06, 0.20, 0.34]
-    for i, (fy, inset, op) in enumerate(pages):
-        p = seg(t, starts[i], starts[i] + 0.22)
-        if p <= 0: continue
-        e = ease_out_back(p)
-        y_off = (1 - e) * -260
-        a = int(op * clamp(p * 3) * fade)
-        if i < 2:
-            rr(d, (96 + inset, fy + y_off, 416 - inset, fy + 36 + y_off), 12, (255, 255, 255), a)
-        else:
-            top, bot = fy + y_off, fy + y_off + 204
-            rr(d, (96, top, 416, bot), 22, (255, 255, 255), int(a * .97))
-            # browser bar
-            bar = (205, 214, 240, a)
-            d.rounded_rectangle((96 * SS, top * SS, 416 * SS, (top + 44) * SS), radius=22 * SS, fill=bar)
-            d.rectangle((96 * SS, (top + 30) * SS, 416 * SS, (top + 44) * SS), fill=bar)
-            for k, c in enumerate(((255, 105, 97), (255, 200, 87), (96, 200, 120))):
-                cx = 124 + k * 24
-                d.ellipse(((cx - 7) * SS, (top + 15) * SS, (cx + 7) * SS, (top + 29) * SS), fill=c + (a,))
-            # content lines draw in left to right
-            lines = [(130, 380, 76, (59, 108, 246)), (130, 330, 108, (160, 172, 205)), (130, 360, 134, (160, 172, 205)), (130, 300, 160, (160, 172, 205))]
-            for j, (x0, x1, dy, col) in enumerate(lines):
-                q = seg(t, 0.56 + j * 0.06, 0.66 + j * 0.06)
-                if q <= 0: continue
-                w = 18 if j == 0 else 12
-                d.rounded_rectangle((x0 * SS, (top + dy - w / 2) * SS, (x0 + (x1 - x0) * q) * SS, (top + dy + w / 2) * SS), radius=6 * SS, fill=col + (a,))
+    # header: slides down from above
+    p = out_cubic(seg(t, 0.00, 0.14))
+    a = int(255 * p * fade)
+    dy = (1 - p) * -40
+    rrect(d, X0, HEAD[0] + dy, X1, HEAD[1] + dy, 16, (255, 255, 255, int(a * .30)))
+    rrect(d, X0 + 18, HEAD[0] + 18 + dy, X0 + 42, HEAD[0] + 42 + dy, 7, (255, 255, 255, int(a * .85)))   # site logo
+    for i in range(3):                                                                                     # menu
+        x = X1 - 28 - (3 - i) * 50
+        rrect(d, x, HEAD[0] + 25 + dy, x + 38, HEAD[0] + 35 + dy, 5, (255, 255, 255, int(a * .65)))
+
+    # footer: slides up from below
+    dy = (1 - p) * 40
+    rrect(d, X0, FOOT[0] + dy, X1, FOOT[1] + dy, 16, (255, 255, 255, int(a * .30)))
+    for i, w in enumerate((70, 52, 62)):
+        x = X0 + 22 + i * 100
+        rrect(d, x, FOOT[0] + 20 + dy, x + w, FOOT[0] + 30 + dy, 5, (255, 255, 255, int(a * .65)))
+        rrect(d, x, FOOT[0] + 36 + dy, x + w * .7, FOOT[0] + 44 + dy, 4, (255, 255, 255, int(a * .35)))
+
+    # empty slot between them, until the page lands
+    slot_in = seg(t, 0.10, 0.20)
+    slot_out = 1 - seg(t, 0.46, 0.54)
+    sa = int(190 * slot_in * slot_out * fade)
+    if sa > 4:
+        dashed_slot(d, sa)
+
+    # the page slides in from the right
+    q = seg(t, 0.26, 0.52)
+    if q > 0:
+        e = out_back(q)
+        off = (1 - e) * 430
+        ba = int(255 * clamp(q * 4) * fade)
+        x0, x1 = X0 + off, X1 + off
+        rrect(d, x0, SLOT[0], x1, SLOT[1], 16, (247, 248, 253, ba))
+        rrect(d, x0 + 26, SLOT[0] + 26, x0 + 26 + 150, SLOT[0] + 46, 8, ACCENT + (ba,))
+        # content lines draw in after landing
+        rows = [(190, 90), (255, 118), (300, 140), (210, 164)]
+        for j, (wd, ry) in enumerate(((290, 78), (250, 104), (280, 128))):
+            k = seg(t, 0.56 + j * 0.06, 0.66 + j * 0.06)
+            if k > 0:
+                rrect(d, x0 + 26, SLOT[0] + ry, x0 + 26 + wd * k, SLOT[0] + ry + 12, 6, (160, 172, 205, ba))
+
+    # soft flash when it snaps into place
+    pulse = math.sin(math.pi * seg(t, 0.46, 0.60))
+    if pulse > 0.03:
+        glow = Image.new('RGBA', base.size, (0, 0, 0, 0))
+        gd = ImageDraw.Draw(glow)
+        gd.rounded_rectangle(((X0 - 6) * SS, (SLOT[0] - 6) * SS, (X1 + 6) * SS, (SLOT[1] + 6) * SS), radius=22 * SS, outline=(255, 255, 255, int(150 * pulse * fade)), width=5 * SS)
+        layer = Image.alpha_composite(layer, glow)
+
+    if bg:  # keep everything inside the rounded icon shape
+        layer.putalpha(ImageChops.multiply(layer.split()[3], mask))
     out = Image.alpha_composite(base, layer)
     return out.resize((S, S), Image.LANCZOS)
 
-def final_frame():
-    return frame(0.86)
 
 def save_gif(path, size, nframes=48, ms=40):
-    frames = []
+    pal = []
     for i in range(nframes):
         f = frame(i / nframes).resize((size, size), Image.LANCZOS).convert('RGBA')
-        # flatten on solid corner colour-key: GIF has 1-bit alpha, so keep the rounded square and use transparency
-        frames.append(f)
-    pal = []
-    for f in frames:
         a = f.split()[3]
         q = f.convert('RGB').quantize(255, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-        m = a.point(lambda v: 255 if v < 128 else 0)
-        q.paste(255, mask=m)
+        q.paste(255, mask=a.point(lambda v: 255 if v < 128 else 0))
         pal.append(q)
     durations = [ms] * nframes
-    durations[int(nframes * 0.86)] = 1400      # hold the finished mark
+    durations[int(nframes * 0.86)] = 1500  # hold the finished mark
     pal[0].save(path, save_all=True, append_images=pal[1:], duration=durations, loop=0, transparency=255, disposal=2, optimize=False)
 
+
 if __name__ == '__main__':
-    fin = final_frame()
+    fin = frame(0.86)
     for n in (128, 256, 512):
         fin.resize((n, n), Image.LANCZOS).save(os.path.join(OUT, f'icon-static-{n}x{n}.png'))
     save_gif(os.path.join(OUT, 'icon-128x128.gif'), 128)

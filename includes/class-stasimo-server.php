@@ -7,12 +7,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class SSM_Server {
+class Stasimo_Server {
 
 	/** Extensions that may be served. Anything else (php, htaccess, sh ...) never leaves the folder. */
 	public static function mime_types() {
 		return apply_filters(
-			'ssm_mime_types',
+			'stasimo_mime_types',
 			array(
 				'html' => 'text/html; charset=UTF-8',
 				'htm'  => 'text/html; charset=UTF-8',
@@ -54,26 +54,26 @@ class SSM_Server {
 	}
 
 	public static function query_vars( $vars ) {
-		$vars[] = 'ssm_mount';
-		$vars[] = 'ssm_sitemap';
+		$vars[] = 'stasimo_mount';
+		$vars[] = 'stasimo_sitemap';
 		return $vars;
 	}
 
 	public static function register_rewrites() {
-		foreach ( SSM_Mounts::active() as $slug => $m ) {
+		foreach ( Stasimo_Mounts::active() as $slug => $m ) {
 			if ( empty( $m['prefix'] ) ) {
 				continue;
 			}
-			add_rewrite_rule( '^' . preg_quote( $m['prefix'], '#' ) . '(/.*)?$', 'index.php?ssm_mount=' . rawurlencode( $slug ), 'top' );
+			add_rewrite_rule( '^' . preg_quote( $m['prefix'], '#' ) . '(/.*)?$', 'index.php?stasimo_mount=' . rawurlencode( $slug ), 'top' );
 		}
-		add_rewrite_rule( '^ssm-pages\.xml$', 'index.php?ssm_sitemap=1', 'top' );
+		add_rewrite_rule( '^stasimo-pages\.xml$', 'index.php?stasimo_sitemap=1', 'top' );
 	}
 
 	/** Flush rules once whenever the set of mounts changed (e.g. after a settings save or an import). */
 	public static function maybe_flush() {
-		if ( get_option( 'ssm_rules_hash' ) !== SSM_Mounts::rules_hash() ) {
+		if ( get_option( 'stasimo_rules_hash' ) !== Stasimo_Mounts::rules_hash() ) {
 			flush_rewrite_rules( false );
-			update_option( 'ssm_rules_hash', SSM_Mounts::rules_hash(), false );
+			update_option( 'stasimo_rules_hash', Stasimo_Mounts::rules_hash(), false );
 		}
 	}
 
@@ -141,11 +141,11 @@ class SSM_Server {
 	}
 
 	public static function handle() {
-		$slug = get_query_var( 'ssm_mount' );
+		$slug = get_query_var( 'stasimo_mount' );
 		if ( '' === $slug || null === $slug ) {
 			return;
 		}
-		$m = SSM_Mounts::get( $slug );
+		$m = Stasimo_Mounts::get( $slug );
 		if ( ! $m || ! $m['enabled'] ) {
 			return;
 		}
@@ -157,14 +157,14 @@ class SSM_Server {
 		$slash    = '/' === substr( $uri_path, -1 );
 		$rel_req  = $rel . ( $slash && '' !== $rel ? '/' : '' );
 
-		$dir   = SSM_Mounts::dir( $m );
+		$dir   = Stasimo_Mounts::dir( $m );
 		$found = self::resolve( $dir, $rel_req );
 
 		if ( ! $found ) {
 			$nf = self::resolve( $dir, '404.html' );
 			global $wp_query;
 			if ( $nf ) {
-				SSM_Renderer::render( $m, $nf['file'], $rel_req, 404 );
+				Stasimo_Renderer::render( $m, $nf['file'], $rel_req, 404 );
 				exit;
 			}
 			$wp_query->set_404();
@@ -177,7 +177,7 @@ class SSM_Server {
 			// Folder pages live at ".../name/": redirect "name" to "name/" (keeps relative links working).
 			// (This includes the mount root itself: relative URLs such as assets/x.css break without the slash.)
 			if ( $found['dir_index'] && ! $slash ) {
-				$to = SSM_Mounts::url( $m, '' === $rel ? '' : $rel . '/' );
+				$to = Stasimo_Mounts::url( $m, '' === $rel ? '' : $rel . '/' );
 				if ( ! empty( $_SERVER['QUERY_STRING'] ) ) {
 					$to .= '?' . wp_unslash( $_SERVER['QUERY_STRING'] ); // phpcs:ignore WordPress.Security
 				}
@@ -185,7 +185,7 @@ class SSM_Server {
 				exit;
 			}
 			$url_rel = $found['dir_index'] ? ( '' === trim( $rel, '/' ) ? '' : trim( $rel, '/' ) . '/' ) : trim( $rel, '/' );
-			SSM_Renderer::render( $m, $found['file'], $url_rel, 200 );
+			Stasimo_Renderer::render( $m, $found['file'], $url_rel, 200 );
 			exit;
 		}
 

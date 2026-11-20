@@ -3,7 +3,7 @@
  * Plugin Name:       Static Site Mount
  * Plugin URI:        https://github.com/wenisch-tech/wordpress-static-site-mount
  * Description:       Mount static site builds (Docusaurus, MkDocs, Hugo, plain HTML) at a URL path, wrapped in your theme's header and footer, with SEO tags and sitemap entries. Deploy from CI with one request.
- * Version:           0.2.0
+ * Version:           0.3.0
  * Requires at least: 5.9
  * Requires PHP:      7.4
  * Author:            Jean-Fabian Wenisch
@@ -17,37 +17,39 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SSM_VERSION', '0.2.0' );
-define( 'SSM_FILE', __FILE__ );
-define( 'SSM_DIR', plugin_dir_path( __FILE__ ) );
+define( 'STASIMO_VERSION', '0.3.0' );
+define( 'STASIMO_FILE', __FILE__ );
+define( 'STASIMO_DIR', plugin_dir_path( __FILE__ ) );
 
-require_once SSM_DIR . 'includes/class-ssm-mounts.php';
-require_once SSM_DIR . 'includes/class-ssm-html.php';
-require_once SSM_DIR . 'includes/class-ssm-indexer.php';
-require_once SSM_DIR . 'includes/class-ssm-renderer.php';
-require_once SSM_DIR . 'includes/class-ssm-server.php';
-require_once SSM_DIR . 'includes/class-ssm-sitemap.php';
-require_once SSM_DIR . 'includes/class-ssm-deployer.php';
-require_once SSM_DIR . 'includes/class-ssm-rest.php';
-require_once SSM_DIR . 'includes/class-ssm-admin.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-upgrade.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-mounts.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-html.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-indexer.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-renderer.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-server.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-sitemap.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-deployer.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-rest.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-admin.php';
 
-SSM_Server::init();
-SSM_Sitemap::init();
-SSM_Rest::init();
-SSM_Admin::init();
+Stasimo_Upgrade::init();
+Stasimo_Server::init();
+Stasimo_Sitemap::init();
+Stasimo_Rest::init();
+Stasimo_Admin::init();
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
-	require_once SSM_DIR . 'includes/class-ssm-cli.php';
-	WP_CLI::add_command( 'static-site-mount', 'SSM_CLI' );
+	require_once STASIMO_DIR . 'includes/class-stasimo-cli.php';
+	WP_CLI::add_command( 'static-site-mount', 'Stasimo_CLI' );
 }
 
 register_activation_hook(
 	__FILE__,
 	function () {
-		SSM_Mounts::prepare_base_dir();
-		SSM_Server::register_rewrites();
+		Stasimo_Mounts::prepare_base_dir();
+		Stasimo_Server::register_rewrites();
 		flush_rewrite_rules( false );
-		update_option( 'ssm_rules_hash', SSM_Mounts::rules_hash(), false );
+		update_option( 'stasimo_rules_hash', Stasimo_Mounts::rules_hash(), false );
 	}
 );
 

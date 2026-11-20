@@ -10,7 +10,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class SSM_Renderer {
+class Stasimo_Renderer {
 
 	/**
 	 * Header or footer of the active block theme, as HTML. Empty for classic themes.
@@ -20,7 +20,7 @@ class SSM_Renderer {
 		if ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) {
 			$html = do_blocks( '<!-- wp:template-part {"slug":"' . esc_attr( $slug ) . '","theme":"' . esc_attr( get_stylesheet() ) . '","tagName":"div"} /-->' );
 		}
-		return (string) apply_filters( 'ssm_' . $slug . '_html', $html );
+		return (string) apply_filters( 'stasimo_' . $slug . '_html', $html );
 	}
 
 	/**
@@ -30,28 +30,28 @@ class SSM_Renderer {
 	 * @param int    $status   HTTP status (200 or 404).
 	 */
 	public static function render( array $m, $file, $rel_url, $status = 200 ) {
-		$cfg   = SSM_Mounts::effective( $m );
+		$cfg   = Stasimo_Mounts::effective( $m );
 		$html  = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-		$parts = SSM_HTML::split( $html );
-		$seo   = SSM_HTML::seo( $parts['head'] );
+		$parts = Stasimo_HTML::split( $html );
+		$seo   = Stasimo_HTML::seo( $parts['head'] );
 
-		$head = SSM_HTML::clean_head( $parts['head'] );
+		$head = Stasimo_HTML::clean_head( $parts['head'] );
 		$body = $parts['body'];
 		if ( '' !== $cfg['remove_all'] ) {
-			$body = SSM_HTML::remove_nodes( $body, $cfg['remove_all'] );
+			$body = Stasimo_HTML::remove_nodes( $body, $cfg['remove_all'] );
 		}
 
-		$canonical = SSM_Mounts::url( $m, $rel_url );
+		$canonical = Stasimo_Mounts::url( $m, $rel_url );
 		$title     = '' !== $seo['title'] ? $seo['title'] : get_bloginfo( 'name' );
 		if ( '' !== $m['title_suffix'] && false === strpos( $title, $m['title_suffix'] ) ) {
 			$title .= $m['title_suffix'];
 		}
-		$title    = (string) apply_filters( 'ssm_title', $title, $m, $rel_url );
-		$desc     = (string) apply_filters( 'ssm_description', $seo['description'], $m, $rel_url );
+		$title    = (string) apply_filters( 'stasimo_title', $title, $m, $rel_url );
+		$desc     = (string) apply_filters( 'stasimo_description', $seo['description'], $m, $rel_url );
 		$noindex  = $m['noindex'] || false !== strpos( $seo['robots'], 'noindex' ) || 200 !== $status;
 		$image    = $seo['image'];
 		if ( '' !== $image && ! preg_match( '#^https?://#i', $image ) ) {
-			$image = 0 === strpos( $image, '/' ) ? home_url( $image ) : SSM_Mounts::url( $m, $image );
+			$image = 0 === strpos( $image, '/' ) ? home_url( $image ) : Stasimo_Mounts::url( $m, $image );
 		}
 
 		$seo_tags  = '<title>' . esc_html( $title ) . "</title>\n";
@@ -90,16 +90,16 @@ class SSM_Renderer {
 				. '}catch(e){}})();</script>' . "\n";
 		}
 
-		// The theme's header/footer sit inside the generator's <body>: give them a sane text baseline (themes can refine it via .ssm-host).
-		$css = (string) apply_filters( 'ssm_host_css', '.ssm-host{font-size:16px;line-height:1.5;font-weight:400;text-align:left}' );
+		// The theme's header/footer sit inside the generator's <body>: give them a sane text baseline (themes can refine it via .stasimo-host).
+		$css = (string) apply_filters( 'stasimo_host_css', '.stasimo-host{font-size:16px;line-height:1.5;font-weight:400;text-align:left}' );
 		if ( '' !== $cfg['hide_all'] ) {
 			$css .= $cfg['hide_all'] . '{display:none!important}';
 		}
 		$css .= $cfg['css'];
 		if ( (int) $m['header_offset'] > 0 ) {
-			$css .= '.ssm-content{padding-top:' . (int) $m['header_offset'] . 'px}';
+			$css .= '.stasimo-content{padding-top:' . (int) $m['header_offset'] . 'px}';
 		}
-		$style = '' !== $css ? '<style id="ssm-wrap">' . $css . "</style>\n" : '';
+		$style = '' !== $css ? '<style id="stasimo-wrap">' . $css . "</style>\n" : '';
 
 		// Theme parts are rendered first so their styles are queued before wp_head().
 		$header = self::template_part( 'header' );
@@ -115,9 +115,9 @@ class SSM_Renderer {
 		$html_attrs = '' !== $parts['html_attrs'] ? $parts['html_attrs'] : get_language_attributes();
 		$body_attrs = $parts['body_attrs'];
 		if ( preg_match( '/class\s*=\s*"([^"]*)"/i', $body_attrs ) ) {
-			$body_attrs = preg_replace( '/class\s*=\s*"([^"]*)"/i', 'class="$1 ssm-page"', $body_attrs, 1 );
+			$body_attrs = preg_replace( '/class\s*=\s*"([^"]*)"/i', 'class="$1 stasimo-page"', $body_attrs, 1 );
 		} else {
-			$body_attrs .= ' class="ssm-page"';
+			$body_attrs .= ' class="stasimo-page"';
 		}
 
 		status_header( $status );
@@ -133,9 +133,9 @@ class SSM_Renderer {
 		echo "</head>\n<body " . $body_attrs . ">\n"; // phpcs:ignore WordPress.Security.EscapeOutput
 		wp_body_open();
 		echo $body_bridge; // phpcs:ignore WordPress.Security.EscapeOutput
-		echo '<div class="ssm-host ssm-host-header">' . $header . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
-		echo '<div class="ssm-content">' . $body . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
-		echo '<div class="ssm-host ssm-host-footer">' . $footer . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '<div class="stasimo-host stasimo-host-header">' . $header . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '<div class="stasimo-content">' . $body . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '<div class="stasimo-host stasimo-host-footer">' . $footer . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
 		wp_footer();
 		echo "\n</body>\n</html>\n";
 	}

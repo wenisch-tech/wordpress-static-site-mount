@@ -7,15 +7,15 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class SSM_Mounts {
+class Stasimo_Mounts {
 
-	const OPTION = 'ssm_mounts';
+	const OPTION = 'stasimo_mounts';
 
 	/** Prefixes that must never be mounted. */
 	const RESERVED = array(
 		'wp-admin', 'wp-content', 'wp-includes', 'wp-json', 'wp-login.php', 'wp-cron.php', 'wp-signup.php', 'wp-activate.php',
 		'wp-comments-post.php', 'wp-trackback.php', 'wp-links-opml.php', 'wp-register.php', 'wp-mail.php', 'wp-load.php',
-		'wp-sitemap.xml', 'sitemap.xml', 'sitemap_index.xml', 'robots.txt', 'favicon.ico', 'ssm-pages.xml', 'index.php',
+		'wp-sitemap.xml', 'sitemap.xml', 'sitemap_index.xml', 'robots.txt', 'favicon.ico', 'stasimo-pages.xml', 'index.php',
 		'feed', 'comments', 'embed', 'xmlrpc.php',
 	);
 
@@ -59,14 +59,14 @@ class SSM_Mounts {
 	 */
 	public static function presets() {
 		return apply_filters(
-			'ssm_presets',
+			'stasimo_presets',
 			array(
 				'docusaurus' => array(
 					'label'     => 'Docusaurus',
 					'hide'      => 'nav.navbar, footer.footer',
 					'remove'    => '',
 					'theme_key' => 'theme',
-					'css'       => ':root{--ifm-navbar-height:{offset}px!important}body.ssm-page{color:var(--ifm-font-color-base);background-color:var(--ifm-background-color)}',
+					'css'       => ':root{--ifm-navbar-height:{offset}px!important}body.stasimo-page{color:var(--ifm-font-color-base);background-color:var(--ifm-background-color)}',
 				),
 				'mkdocs-material' => array(
 					'label'     => 'MkDocs Material',
@@ -74,7 +74,7 @@ class SSM_Mounts {
 					'hide'      => '.md-footer-meta',
 					'remove'    => '',
 					'theme_key' => '',
-					'css'       => '.md-header{top:{offset}px!important}.md-sidebar{top:calc(2.4rem + {offset}px)!important}@media (max-width:76.1875em){.md-sidebar--primary{top:{offset}px!important;height:calc(100% - {offset}px)!important}}body.ssm-page{color:var(--md-default-fg-color);background-color:var(--md-default-bg-color)}',
+					'css'       => '.md-header{top:{offset}px!important}.md-sidebar{top:calc(2.4rem + {offset}px)!important}@media (max-width:76.1875em){.md-sidebar--primary{top:{offset}px!important;height:calc(100% - {offset}px)!important}}body.stasimo-page{color:var(--md-default-fg-color);background-color:var(--md-default-bg-color)}',
 					'body_attr' => array(
 						'name'  => 'data-md-color-scheme',
 						'dark'  => 'slate',
@@ -133,7 +133,7 @@ class SSM_Mounts {
 
 	public static function save_all( array $mounts ) {
 		update_option( self::OPTION, $mounts, false );
-		update_option( 'ssm_rules_hash', '', false ); // force a rewrite flush on the next request.
+		update_option( 'stasimo_rules_hash', '', false ); // force a rewrite flush on the next request.
 	}
 
 	public static function rules_hash() {
@@ -141,7 +141,7 @@ class SSM_Mounts {
 		foreach ( self::all() as $slug => $m ) {
 			$parts[] = $slug . '=' . ( isset( $m['prefix'] ) ? $m['prefix'] : '' ) . ( isset( $m['enabled'] ) && ! $m['enabled'] ? ':off' : '' );
 		}
-		return md5( implode( '|', $parts ) . '|' . SSM_VERSION );
+		return md5( implode( '|', $parts ) . '|' . STASIMO_VERSION );
 	}
 
 	/**
@@ -151,7 +151,7 @@ class SSM_Mounts {
 		$m          = wp_parse_args( $raw, self::defaults() );
 		$m['slug']  = sanitize_title( $m['slug'] );
 		if ( false !== strpos( (string) $m['prefix'], '..' ) ) {
-			return new WP_Error( 'ssm_prefix', __( 'The URL prefix must not contain "..".', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_prefix', __( 'The URL prefix must not contain "..".', 'static-site-mount' ) );
 		}
 		$prefix     = strtolower( trim( (string) $m['prefix'], " \t\n\r\0\x0B/" ) );
 		$prefix     = preg_replace( '#[^a-z0-9/_-]#', '', $prefix );
@@ -159,26 +159,26 @@ class SSM_Mounts {
 		$prefix     = trim( $prefix, '/' );
 
 		if ( '' === $m['slug'] ) {
-			return new WP_Error( 'ssm_slug', __( 'A short name (slug) is required.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_slug', __( 'A short name (slug) is required.', 'static-site-mount' ) );
 		}
 		if ( '' === $prefix || false !== strpos( $prefix, '..' ) ) {
-			return new WP_Error( 'ssm_prefix', __( 'A URL prefix such as docs/my-project is required.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_prefix', __( 'A URL prefix such as docs/my-project is required.', 'static-site-mount' ) );
 		}
 		$first = explode( '/', $prefix )[0];
 		if ( in_array( $first, self::RESERVED, true ) ) {
-			return new WP_Error( 'ssm_reserved', __( 'That URL prefix is reserved by WordPress.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_reserved', __( 'That URL prefix is reserved by WordPress.', 'static-site-mount' ) );
 		}
 		$m['prefix'] = $prefix;
 
-		// The folder is always inside the base folder (wp-content/static-sites): a deploy replaces it, so it must never point elsewhere.
-		// Use the ssm_base_dir filter to move the base folder, or ssm_allow_external_dirs to allow absolute paths (WP-CLI use).
+		// The folder is always inside the base folder (uploads/static-sites): a deploy replaces it, so it must never point elsewhere.
+		// Use the stasimo_base_dir filter to move the base folder, or stasimo_allow_external_dirs to allow absolute paths (WP-CLI use).
 		$dir = trim( (string) $m['dir'], " \t\n\r\0\x0B/" );
 		if ( '' !== $dir ) {
 			$absolute = 0 === strpos( (string) $m['dir'], '/' ) || preg_match( '#^[A-Za-z]:[\\\\/]#', (string) $m['dir'] );
-			if ( $absolute && apply_filters( 'ssm_allow_external_dirs', false ) ) {
+			if ( $absolute && apply_filters( 'stasimo_allow_external_dirs', false ) ) {
 				$dir = untrailingslashit( (string) $m['dir'] );
 			} elseif ( $absolute || ! preg_match( '#^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$#', $dir ) || false !== strpos( $dir, '..' ) ) {
-				return new WP_Error( 'ssm_dir', __( 'The folder must be a plain name inside wp-content/static-sites (letters, digits, dash, underscore).', 'static-site-mount' ) );
+				return new WP_Error( 'stasimo_dir', __( 'The folder must be a plain name inside the static-sites folder (letters, digits, dash, underscore).', 'static-site-mount' ) );
 			}
 		}
 		$m['dir'] = $dir;
@@ -219,8 +219,19 @@ class SSM_Mounts {
 		return $m;
 	}
 
+	/**
+	 * Base folder for all mounts: <uploads>/static-sites (per site on multisite).
+	 * Versions before 0.3.0 used wp-content/static-sites; that folder keeps being used while it exists and the new one does not.
+	 */
 	public static function base_dir() {
-		return untrailingslashit( apply_filters( 'ssm_base_dir', WP_CONTENT_DIR . '/static-sites' ) );
+		static $default = null;
+		if ( null === $default ) {
+			$up      = wp_upload_dir( null, false );
+			$new     = untrailingslashit( empty( $up['basedir'] ) ? WP_CONTENT_DIR . '/uploads' : $up['basedir'] ) . '/static-sites';
+			$legacy  = WP_CONTENT_DIR . '/static-sites';
+			$default = ( is_dir( $legacy ) && ! is_dir( $new ) ) ? $legacy : $new;
+		}
+		return untrailingslashit( apply_filters( 'stasimo_base_dir', $default ) );
 	}
 
 	/**
@@ -233,7 +244,7 @@ class SSM_Mounts {
 		}
 		if ( 0 === strpos( $dir, '/' ) || preg_match( '#^[A-Za-z]:[\\\\/]#', $dir ) ) {
 			// Absolute folders only when explicitly allowed; otherwise fall back to the default location.
-			return apply_filters( 'ssm_allow_external_dirs', false ) ? untrailingslashit( $dir ) : self::base_dir() . '/' . $m['slug'];
+			return apply_filters( 'stasimo_allow_external_dirs', false ) ? untrailingslashit( $dir ) : self::base_dir() . '/' . $m['slug'];
 		}
 		if ( preg_match( '#(^|/)\.#', $dir ) ) {
 			return self::base_dir() . '/' . $m['slug'];

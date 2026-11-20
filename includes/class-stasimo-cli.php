@@ -10,7 +10,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Manage static site mounts.
  */
-class SSM_CLI {
+class Stasimo_CLI {
 
 	/**
 	 * List mounts.
@@ -19,13 +19,13 @@ class SSM_CLI {
 	 */
 	public function list_( $args, $assoc ) {
 		$rows = array();
-		foreach ( SSM_Mounts::all() as $slug => $m ) {
-			$m      = wp_parse_args( $m, SSM_Mounts::defaults() );
-			$idx    = SSM_Indexer::get( $slug );
+		foreach ( Stasimo_Mounts::all() as $slug => $m ) {
+			$m      = wp_parse_args( $m, Stasimo_Mounts::defaults() );
+			$idx    = Stasimo_Indexer::get( $slug );
 			$rows[] = array(
 				'slug'   => $slug,
-				'url'    => SSM_Mounts::url( $m ),
-				'folder' => SSM_Mounts::dir( $m ),
+				'url'    => Stasimo_Mounts::url( $m ),
+				'folder' => Stasimo_Mounts::dir( $m ),
 				'pages'  => count( $idx['pages'] ),
 			);
 		}
@@ -47,7 +47,7 @@ class SSM_CLI {
 	 * : docusaurus or generic.
 	 *
 	 * [--dir=<dir>]
-	 * : Folder name inside wp-content/static-sites (absolute paths need the ssm_allow_external_dirs filter).
+	 * : Folder name inside the static-sites base folder (uploads) (absolute paths need the stasimo_allow_external_dirs filter).
 	 *
 	 * [--header-offset=<px>]
 	 * : Space for a fixed theme header.
@@ -64,15 +64,15 @@ class SSM_CLI {
 			'header_offset'  => isset( $assoc['header-offset'] ) ? $assoc['header-offset'] : 0,
 			'host_theme_key' => isset( $assoc['host-theme-key'] ) ? $assoc['host-theme-key'] : '',
 		);
-		$m = SSM_Mounts::sanitize( $raw );
+		$m = Stasimo_Mounts::sanitize( $raw );
 		if ( is_wp_error( $m ) ) {
 			WP_CLI::error( $m->get_error_message() );
 		}
-		$all              = SSM_Mounts::all();
+		$all              = Stasimo_Mounts::all();
 		$all[ $m['slug'] ] = $m;
-		SSM_Mounts::save_all( $all );
-		SSM_Mounts::prepare_base_dir();
-		WP_CLI::success( 'Mount saved: ' . SSM_Mounts::url( $m ) );
+		Stasimo_Mounts::save_all( $all );
+		Stasimo_Mounts::prepare_base_dir();
+		WP_CLI::success( 'Mount saved: ' . Stasimo_Mounts::url( $m ) );
 	}
 
 	/**
@@ -84,12 +84,12 @@ class SSM_CLI {
 	 * : Mount to index (default: all).
 	 */
 	public function reindex( $args ) {
-		$all = SSM_Mounts::all();
+		$all = Stasimo_Mounts::all();
 		foreach ( $all as $slug => $m ) {
 			if ( ! empty( $args[0] ) && $args[0] !== $slug ) {
 				continue;
 			}
-			$r = SSM_Indexer::reindex( wp_parse_args( $m, SSM_Mounts::defaults() ) );
+			$r = Stasimo_Indexer::reindex( wp_parse_args( $m, Stasimo_Mounts::defaults() ) );
 			if ( is_wp_error( $r ) ) {
 				WP_CLI::warning( $slug . ': ' . $r->get_error_message() );
 			} else {
@@ -110,11 +110,11 @@ class SSM_CLI {
 	 * : Zip file or folder.
 	 */
 	public function deploy( $args ) {
-		$m = SSM_Mounts::get( $args[0] );
+		$m = Stasimo_Mounts::get( $args[0] );
 		if ( ! $m ) {
 			WP_CLI::error( 'Unknown mount.' );
 		}
-		$r = is_dir( $args[1] ) ? SSM_Deployer::deploy_dir( $m, $args[1] ) : SSM_Deployer::deploy_zip( $m, $args[1] );
+		$r = is_dir( $args[1] ) ? Stasimo_Deployer::deploy_dir( $m, $args[1] ) : Stasimo_Deployer::deploy_zip( $m, $args[1] );
 		if ( is_wp_error( $r ) ) {
 			WP_CLI::error( $r->get_error_message() );
 		}
