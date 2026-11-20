@@ -1,0 +1,45 @@
+<!doctype html><meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0}
+body{width:1544px;height:500px;overflow:hidden;font-family:"Open Sans","Noto Sans","Liberation Sans",sans-serif;color:#fff;
+background:radial-gradient(900px 500px at 85% 20%,#3b4fd0 0%,rgba(59,79,208,0) 60%),linear-gradient(120deg,#0e1647 0%,#1b2a85 55%,#2342b8 100%);position:relative}
+.left{position:absolute;left:72px;top:64px;width:860px}
+.head{display:flex;align-items:center;gap:32px}
+.head img{width:132px;height:132px;border-radius:30px;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+h1{font-size:80px;line-height:1;font-weight:800;letter-spacing:-1.5px;white-space:nowrap}
+.tag{margin:24px 0 0 0;font-size:29px;color:#c3cdfa;white-space:nowrap}
+.pills{display:grid;grid-template-columns:repeat(3,auto);gap:16px;margin-top:40px;width:max-content}
+.pill{display:flex;align-items:center;gap:12px;padding:11px 20px 11px 13px;border-radius:40px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.18);font-size:21px;font-weight:600;white-space:nowrap}
+.pill i{width:24px;height:24px;border-radius:50%;background:#34c46a;display:inline-block;position:relative}
+.pill i:after{content:"";position:absolute;left:7px;top:3px;width:6px;height:12px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg)}
+.card{position:absolute;right:64px;top:62px;width:500px;height:376px;border-radius:22px;background:#fff;color:#1b2140;box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden}
+.nav{height:54px;background:#f4f6fc;border-bottom:1px solid #e1e6f5;display:flex;align-items:center;padding:0 22px;gap:12px;font-size:19px;font-weight:700}
+.nav b{width:22px;height:22px;border-radius:6px;background:#3b6cf6}
+.nav span{margin-left:auto;color:#6b7498;font-weight:500;font-size:16px;display:flex;gap:20px}
+.url{height:36px;background:#fff;border-bottom:1px solid #eef0f8;font-size:15px;color:#6b7498;padding:0 22px;display:flex;align-items:center;font-family:"DejaVu Sans Mono",monospace}
+.url em{background:#e9efff;color:#2c55d6;padding:3px 10px;border-radius:10px;font-style:normal}
+.body{display:flex;height:calc(100% - 90px - 40px)}
+.side{width:150px;border-right:1px solid #e9ecf6;padding:18px 16px;font-size:15px;color:#4a5378;display:flex;flex-direction:column;gap:12px}
+.side u{text-decoration:none;color:#2c55d6;font-weight:700;background:#e9efff;border-radius:8px;padding:5px 10px;margin:0 -10px}
+.main{padding:20px 26px;flex:1}
+.main h2{font-size:28px;margin-bottom:10px}
+.ln{height:11px;border-radius:6px;background:#dde2f2;margin:10px 0}
+.foot{position:absolute;bottom:0;left:0;right:0;height:40px;background:#f4f6fc;border-top:1px solid #e1e6f5;font-size:14px;color:#7a83a8;display:flex;align-items:center;padding:0 22px}
+.badge{position:absolute;right:56px;bottom:30px;background:#34c46a;color:#05361a;font-weight:800;font-size:20px;padding:10px 20px;border-radius:30px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+</style>
+<div class="left">
+ <div class="head"><img src="../icon-static-512x512.png"><div><h1>Static Site Mount</h1></div></div>
+ <div class="tag">Docs and static sites, served inside your WordPress theme</div>
+ <div class="pills">
+  <div class="pill"><i></i>Theme header + footer</div><div class="pill"><i></i>SEO + sitemap</div><div class="pill"><i></i>Deploy from CI</div>
+  <div class="pill"><i></i>Atomic zip upload</div><div class="pill"><i></i>Light / dark bridge</div><div class="pill"><i></i>Safe by default</div>
+ </div>
+</div>
+<div class="card">
+ <div class="nav"><b></b>Your site<span><i style="font-style:normal">Solutions</i><i style="font-style:normal">Docs</i><i style="font-style:normal">Blog</i></span></div>
+ <div class="url">example.com<em>/docs/my-project/</em></div>
+ <div class="body"><div class="side"><u>Introduction</u><span>Install</span><span>Configure</span><span>Deploy</span><span>FAQ</span></div>
+ <div class="main"><h2>Introduction</h2><div class="ln" style="width:92%"></div><div class="ln" style="width:78%"></div><div class="ln" style="width:85%"></div><div class="ln" style="width:55%"></div></div></div>
+ <div class="foot">Your site footer</div>
+</div>
+<div class="badge">Mounted</div>

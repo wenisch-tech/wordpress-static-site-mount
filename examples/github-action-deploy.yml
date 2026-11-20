@@ -1,0 +1,39 @@
+# Build Docusaurus and deploy it to a WordPress site that runs the Static Site Mount plugin.
+#
+# Repository secrets / variables:
+#   WP_URL           https://example.com                (variable)
+#   WP_USER          administrator user name            (secret)
+#   WP_APP_PASSWORD  an Application Password            (secret)
+#   MOUNT            the mount name, e.g. my-project    (variable)
+name: docs
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'docs-site/**']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: docs-site/package-lock.json }
+
+      - name: Build with the mount's base URL
+        working-directory: docs-site
+        env:
+          DOCS_URL: ${{ vars.WP_URL }}
+          DOCS_BASE_URL: /docs/${{ vars.MOUNT }}/
+        run: |
+          npm ci
+          npm run build
+
+      - name: Zip the build
+        run: cd docs-site/build && zip -qr "$GITHUB_WORKSPACE/build.zip" .
+
+      - name: Deploy (the live site is untouched if this fails)
+        run: |
+          curl -fsS -u "${{ secrets.WP_USER }}:${{ secrets.WP_APP_PASSWORD }}" \
+            -F "file=@build.zip" \
+            "${{ vars.WP_URL }}/wp-json/static-site-mount/v1/mounts/${{ vars.MOUNT }}/deploy"

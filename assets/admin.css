@@ -1,0 +1,56 @@
+/* Static Site Mount: admin screens. Uses WordPress admin colors so it fits any admin scheme. */
+.ssm-wrap { max-width: 1180px; }
+.ssm-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 6px; }
+.ssm-head h1 { margin: 0; padding: 0; }
+.ssm-sub { color: #50575e; margin: 0 0 18px; max-width: 760px; }
+.ssm-crumb { margin: 0 0 8px; font-size: 13px; }
+
+.ssm-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.6; border: 1px solid transparent; vertical-align: middle; }
+.ssm-badge--on { background: #edfaef; color: #007017; border-color: #b8e6bf; }
+.ssm-badge--off { background: #f0f0f1; color: #50575e; border-color: #dcdcde; }
+.ssm-badge--warn { background: #fcf9e8; color: #6e5300; border-color: #f0d88c; }
+.ssm-badge--info { background: #f0f6fc; color: #0a4b78; border-color: #c5d9ed; }
+
+table.ssm-table td, table.ssm-table th { vertical-align: middle; }
+table.ssm-table .ssm-name { font-weight: 600; font-size: 14px; }
+table.ssm-table .ssm-url { color: #50575e; font-size: 12px; margin-top: 2px; }
+table.ssm-table tr.ssm-off .ssm-name a { color: #787c82; }
+.ssm-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+.ssm-empty { background: #fff; border: 1px dashed #c3c4c7; padding: 36px 28px; text-align: center; max-width: 760px; }
+.ssm-empty h2 { margin-top: 0; }
+.ssm-empty ol { text-align: left; display: inline-block; margin: 8px auto 20px; }
+
+.ssm-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1000px) { .ssm-grid { grid-template-columns: minmax(0, 1fr); } }
+.ssm-card { background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 16px 20px; margin: 0 0 20px; }
+.ssm-card h2 { margin: 0 0 4px; font-size: 15px; padding: 0; }
+.ssm-card > .description { margin: 0 0 8px; }
+.ssm-card .form-table { margin-top: 4px; }
+.ssm-card .form-table th { width: 190px; padding: 14px 10px 14px 0; font-weight: 600; }
+.ssm-card .form-table td { padding: 10px 0; }
+.ssm-card .form-table input[type="text"], .ssm-card .form-table select { max-width: 100%; }
+.ssm-card .form-table .large-text { width: 100%; }
+.ssm-prefix { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ssm-prefix code { background: #f0f0f1; padding: 4px 6px; }
+
+.ssm-kv { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px 12px; margin: 8px 0 14px; font-size: 13px; }
+.ssm-kv dt { color: #50575e; margin: 0; }
+.ssm-kv dd { margin: 0; word-break: break-word; }
+.ssm-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+.ssm-code { background: #1d2327; color: #e6edf3; padding: 12px 14px; border-radius: 4px; overflow: auto; font-size: 12px; line-height: 1.6; margin: 8px 0; }
+.ssm-pages { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ssm-pages th, .ssm-pages td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f1; }
+.ssm-pages td:first-child { word-break: break-all; }
+.ssm-danger { border-color: #f0b8b8; }
+.ssm-danger h2 { color: #8a1f1f; }
+.button.ssm-delete { color: #b32d2e; border-color: #b32d2e; }
+.button.ssm-delete:hover { background: #fcf0f1; color: #8a1f1f; border-color: #8a1f1f; }
+
+.ssm-about { max-width: 900px; }
+.ssm-about h2 { margin-top: 28px; }
+.ssm-about table.widefat td, .ssm-about table.widefat th { vertical-align: top; }
+.ssm-steps { counter-reset: ssm; list-style: none; padding: 0; margin: 12px 0; }
+.ssm-steps li { counter-increment: ssm; position: relative; padding: 4px 0 10px 38px; }
+.ssm-steps li::before { content: counter(ssm); position: absolute; left: 0; top: 2px; width: 26px; height: 26px; border-radius: 50%; background: #2271b1; color: #fff; text-align: center; line-height: 26px; font-weight: 600; font-size: 13px; }

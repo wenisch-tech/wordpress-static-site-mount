@@ -1,0 +1,10 @@
+.git
+.gitignore
+.distignore
+tests
+bin
+assets/src
+assets/*.png
+assets/*.gif
+*.zip
+node_modules
