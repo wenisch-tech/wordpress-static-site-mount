@@ -1,45 +1,52 @@
 <!doctype html><meta charset="utf-8">
 <style>
 *{box-sizing:border-box;margin:0}
-body{width:1544px;height:500px;overflow:hidden;font-family:"Open Sans","Noto Sans","Liberation Sans",sans-serif;color:#fff;
-background:radial-gradient(900px 500px at 85% 20%,#3b4fd0 0%,rgba(59,79,208,0) 60%),linear-gradient(120deg,#0e1647 0%,#1b2a85 55%,#2342b8 100%);position:relative}
-.left{position:absolute;left:72px;top:64px;width:860px}
-.head{display:flex;align-items:center;gap:32px}
-.head img{width:132px;height:132px;border-radius:30px;box-shadow:0 14px 40px rgba(0,0,0,.35)}
-h1{font-size:80px;line-height:1;font-weight:800;letter-spacing:-1.5px;white-space:nowrap}
-.tag{margin:24px 0 0 0;font-size:29px;color:#c3cdfa;white-space:nowrap}
-.pills{display:grid;grid-template-columns:repeat(3,auto);gap:16px;margin-top:40px;width:max-content}
-.pill{display:flex;align-items:center;gap:12px;padding:11px 20px 11px 13px;border-radius:40px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.18);font-size:21px;font-weight:600;white-space:nowrap}
-.pill i{width:24px;height:24px;border-radius:50%;background:#34c46a;display:inline-block;position:relative}
-.pill i:after{content:"";position:absolute;left:7px;top:3px;width:6px;height:12px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg)}
-.card{position:absolute;right:64px;top:62px;width:500px;height:376px;border-radius:22px;background:#fff;color:#1b2140;box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden}
-.nav{height:54px;background:#f4f6fc;border-bottom:1px solid #e1e6f5;display:flex;align-items:center;padding:0 22px;gap:12px;font-size:19px;font-weight:700}
-.nav b{width:22px;height:22px;border-radius:6px;background:#3b6cf6}
-.nav span{margin-left:auto;color:#6b7498;font-weight:500;font-size:16px;display:flex;gap:20px}
-.url{height:36px;background:#fff;border-bottom:1px solid #eef0f8;font-size:15px;color:#6b7498;padding:0 22px;display:flex;align-items:center;font-family:"DejaVu Sans Mono",monospace}
-.url em{background:#e9efff;color:#2c55d6;padding:3px 10px;border-radius:10px;font-style:normal}
-.body{display:flex;height:calc(100% - 90px - 40px)}
-.side{width:150px;border-right:1px solid #e9ecf6;padding:18px 16px;font-size:15px;color:#4a5378;display:flex;flex-direction:column;gap:12px}
-.side u{text-decoration:none;color:#2c55d6;font-weight:700;background:#e9efff;border-radius:8px;padding:5px 10px;margin:0 -10px}
-.main{padding:20px 26px;flex:1}
-.main h2{font-size:28px;margin-bottom:10px}
-.ln{height:11px;border-radius:6px;background:#dde2f2;margin:10px 0}
-.foot{position:absolute;bottom:0;left:0;right:0;height:40px;background:#f4f6fc;border-top:1px solid #e1e6f5;font-size:14px;color:#7a83a8;display:flex;align-items:center;padding:0 22px}
-.badge{position:absolute;right:56px;bottom:30px;background:#34c46a;color:#05361a;font-weight:800;font-size:20px;padding:10px 20px;border-radius:30px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+body{width:1544px;height:500px;overflow:hidden;font-family:"Open Sans","Noto Sans","Liberation Sans",sans-serif;color:#fff;position:relative;
+background:radial-gradient(800px 520px at 82% 30%,#3a54d8 0%,rgba(58,84,216,0) 62%),linear-gradient(120deg,#0d1546 0%,#182a86 55%,#1f3fb0 100%)}
+.left{position:absolute;left:72px;top:70px;width:540px}
+.brand{display:flex;align-items:center;gap:26px}
+.brand img{width:112px;height:112px;border-radius:26px;box-shadow:0 12px 34px rgba(0,0,0,.35)}
+h1{font-size:62px;line-height:1.02;font-weight:800;letter-spacing:-1px}
+.tag{margin-top:38px;font-size:36px;line-height:1.3;color:#fff;font-weight:700}
+.sub{margin-top:24px;font-size:24px;line-height:1.4;color:#b4c0f5}
+
+/* the diagram */
+.stack{position:absolute;left:800px;top:46px;width:670px}
+.band{border-radius:18px;display:flex;align-items:center;padding:0 24px;position:relative}
+.theme{height:76px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.28);font-size:20px;font-weight:700;color:#dfe5ff;gap:14px}
+.theme .lg{width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.8)}
+.theme .nav{margin-left:auto;display:flex;gap:12px}
+.theme .nav i{width:56px;height:11px;border-radius:6px;background:rgba(255,255,255,.55)}
+.tag-l{position:absolute;right:20px;top:-14px;font-size:14px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;background:#2a3fa3;border:2px solid rgba(255,255,255,.35);border-radius:20px;padding:3px 12px;color:#e3e8ff}
+.page{margin:18px 0;height:228px;background:#f7f8fd;color:#1b2140;border-radius:18px;padding:0;overflow:hidden;box-shadow:0 0 0 4px rgba(52,196,106,.9),0 24px 60px rgba(0,0,0,.4);display:flex;position:relative}
+.page .side{width:170px;border-right:1px solid #e3e7f4;padding:56px 20px 22px;font-size:16px;color:#4b5580;display:flex;flex-direction:column;gap:12px}
+.page .side u{text-decoration:none;color:#2c55d6;font-weight:800}
+.page .main{flex:1;padding:22px 28px}
+.page h2{font-size:28px;margin-bottom:12px}
+.ln{height:11px;border-radius:6px;background:#dde2f2;margin:11px 0}
+.ribbon{position:absolute;left:-2px;top:-2px;background:#34c46a;color:#04301a;font-weight:800;font-size:17px;padding:7px 16px 7px 14px;border-radius:16px 0 14px 0;letter-spacing:.2px;z-index:2}
+.foot{height:76px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.28)}
+.foot .cols{display:flex;gap:70px}
+.foot .cols div{display:flex;flex-direction:column;gap:9px}
+.foot .cols i{display:block;height:11px;border-radius:6px;background:rgba(255,255,255,.55)}
+.foot .cols i+i{height:8px;background:rgba(255,255,255,.3);width:70%}
+/* arrow from the build into the page */
+.build{position:absolute;left:636px;top:210px;width:150px;display:flex;align-items:center;gap:0;z-index:3}
+.build .zip{background:#fff;color:#1b2140;font-weight:800;font-size:19px;padding:10px 16px;border-radius:12px;box-shadow:0 10px 26px rgba(0,0,0,.4);white-space:nowrap}
+.build svg{margin-left:-4px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
 </style>
 <div class="left">
- <div class="head"><img src="../icon-static-512x512.png"><div><h1>Static Site Mount</h1></div></div>
- <div class="tag">Docs and static sites, served inside your WordPress theme</div>
- <div class="pills">
-  <div class="pill"><i></i>Theme header + footer</div><div class="pill"><i></i>SEO + sitemap</div><div class="pill"><i></i>Deploy from CI</div>
-  <div class="pill"><i></i>Atomic zip upload</div><div class="pill"><i></i>Light / dark bridge</div><div class="pill"><i></i>Safe by default</div>
+ <div class="brand"><img src="../icon-static-512x512.png"><h1>Static Site<br>Mount</h1></div>
+ <div class="tag">Mount static HTML files in your existing WordPress site.</div>
+ <div class="sub">Any static site, shown inside your theme, between its header and footer.</div>
+</div>
+<div class="build"><div class="zip">build.zip</div>
+ <svg width="104" height="40" viewBox="0 0 104 40"><path d="M2 20h88M78 6l16 14-16 14" fill="none" stroke="#34c46a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+<div class="stack">
+ <div class="band theme"><span class="lg"></span>Your site<div class="nav"><i></i><i></i><i></i></div><span class="tag-l">Theme header</span></div>
+ <div class="page"><span class="ribbon">Your static HTML goes here</span>
+  <div class="side"><u>Introduction</u><span>Install</span><span>Configure</span><span>Deploy</span></div>
+  <div class="main" style="padding-top:56px"><h2>Introduction</h2><div class="ln" style="width:94%"></div><div class="ln" style="width:80%"></div><div class="ln" style="width:88%"></div></div>
  </div>
+ <div class="band theme foot"><div class="cols"><div><i style="width:80px"></i><i></i></div><div><i style="width:60px"></i><i></i></div><div><i style="width:70px"></i><i></i></div></div><span class="tag-l" style="top:auto;bottom:-14px">Theme footer</span></div>
 </div>
-<div class="card">
- <div class="nav"><b></b>Your site<span><i style="font-style:normal">Solutions</i><i style="font-style:normal">Docs</i><i style="font-style:normal">Blog</i></span></div>
- <div class="url">example.com<em>/docs/my-project/</em></div>
- <div class="body"><div class="side"><u>Introduction</u><span>Install</span><span>Configure</span><span>Deploy</span><span>FAQ</span></div>
- <div class="main"><h2>Introduction</h2><div class="ln" style="width:92%"></div><div class="ln" style="width:78%"></div><div class="ln" style="width:85%"></div><div class="ln" style="width:55%"></div></div></div>
- <div class="foot">Your site footer</div>
-</div>
-<div class="badge">Mounted</div>

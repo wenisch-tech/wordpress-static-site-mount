@@ -1,66 +1,54 @@
 # Static Site Mount
 
-[![Latest release](https://img.shields.io/github/v/release/wenisch-tech/wordpress-static-site-mount?label=release)](https://github.com/wenisch-tech/wordpress-static-site-mount/releases/latest)
 [![License: GPL v2+](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](LICENSE)
-[![Plugin Check](https://img.shields.io/badge/Plugin%20Check-passing-brightgreen)](#development)
 
 ![Static Site Mount](assets/banner-1544x500.png)
 
-Static Site Mount publishes a **built static site** (Docusaurus, MkDocs, Hugo, plain HTML) at a URL of your WordPress site, **inside your theme's header and footer**, with SEO tags and a sitemap, and lets you **deploy it from CI with one request**.
+A WordPress plugin that mounts static HTML files in your existing WordPress site. A folder of HTML, CSS, JavaScript and images is served at a path of your choice and shown between your theme's header and footer. Where the files come from does not matter: a documentation generator (for example Docusaurus, MkDocs or Hugo), a landing page, an exported report, or HTML you wrote by hand.
 
-Typical use: product documentation built with Docusaurus lives at `https://example.com/docs/my-project/`, looks like part of your site, and updates itself on every release. No second domain, no iframe, no copy of your header in the docs project.
+I wrote it because static sites, project docs in particular, usually end up on a subdomain with their own look, their own menu and no connection to the main site's SEO. With this plugin the build lives at something like `example.com/docs/my-project/`, looks like the rest of the site, and is updated by a single request from CI.
 
-![Static Site Mount logo](assets/logo-animation.gif)
+## What happens to a page
 
-## What it does
+You deploy a folder of HTML files. When someone opens one of its URLs, the plugin reads the file, takes your block theme's header and footer, and prints the page's own `<body>` between them. If the files come with their own navbar and footer, those are hidden with CSS, or removed on the server for plain HTML. Hiding is the safer choice for JavaScript-driven sites (Docusaurus and MkDocs Material are examples), because their scripts expect the original markup to be there.
 
-- **Mounts a folder at a URL prefix.** Pages, assets and fonts are served through WordPress with correct MIME types, `ETag`/`304`, and long-lived caching for fingerprinted files.
-- **Wraps pages in your block theme's header and footer**, so menu, branding and the light/dark switch are shared. The generator's own navbar and footer are hidden with CSS (JavaScript apps keep working) or removed on the server (plain HTML).
-- **Writes the SEO tags itself:** title, meta description, canonical URL (rewritten to the mounted URL), Open Graph and Twitter tags, `noindex` support. Yoast SEO's tags are suppressed on these pages, so nothing is duplicated.
-- **Sitemap:** `/stasimo-pages.xml`, announced in Yoast's sitemap index and `robots.txt`.
-- **Deploy from CI:** upload a zip to a REST endpoint; the folder is replaced atomically and re-indexed. WP-CLI commands are included.
-- **Light/dark bridge:** the mounted site follows your theme's light or dark choice.
-- **Safe by default:** only allow-listed file types are served, no dotfiles, no path traversal, archives are checked for zip-slip and executable files, and the files are not reachable directly from `wp-content`. A refused deploy leaves the live site untouched.
-- **Own admin menu** with a mounts list, per-mount details, enable/disable and an About page with an environment check.
+The plugin writes the head itself: title, description, canonical URL, Open Graph and Twitter tags, `noindex` if the page asks for it. If Yoast SEO is active, its tags are switched off on these pages so nothing is duplicated. All pages go into `/stasimo-pages.xml`, which is added to Yoast's sitemap index and to `robots.txt`.
 
-| Mounts | Mount details |
-|---|---|
-| ![Mounts list](assets/screenshot-2.png) | ![Mount details](assets/screenshot-3.png) |
+Other things it does:
 
-![A mounted Docusaurus site inside the theme](assets/screenshot-1.png)
+- serves assets with the right MIME type, `ETag`, and long caching for fingerprinted files
+- follows the theme's light/dark choice, if you tell it the localStorage key
+- replaces a mount's folder atomically on every deploy
+- has its own admin menu (Static Sites) and WP-CLI commands
 
 ## Requirements
 
-- WordPress 5.9 or later and PHP 7.4 or later (the `zip` extension is needed for deploys).
-- A **block theme** for the header/footer wrapper. Classic themes get the page without the theme chrome; use the `stasimo_header_html` and `stasimo_footer_html` filters.
-- Pretty permalinks (**Settings → Permalinks**).
+WordPress 5.9, PHP 7.4 with the zip extension (needed for deploys), pretty permalinks, and a block theme. With a classic theme the page is served without header and footer, unless you supply them through the `stasimo_header_html` and `stasimo_footer_html` filters.
 
-## Installation
+## Install
 
-1. Download `static-site-mount-x.y.z.zip` from the [releases page](https://github.com/wenisch-tech/wordpress-static-site-mount/releases).
-2. Go to **Plugins → Add New → Upload Plugin**, upload the ZIP and activate it.
+Download the zip from the releases page, upload it under Plugins, Add New, Upload Plugin, and activate it. There is no release yet, so for now: copy this folder to `wp-content/plugins/static-site-mount/`.
 
-Or unzip it into `wp-content/plugins/` and activate it there.
+## Set up a mount
 
-## Quick start
+Build your site with the mount's URL as its base path. The plugin does not rewrite URLs inside JavaScript bundles, so this has to be right at build time. Hand-written HTML with relative links needs nothing special. Two examples of the setting:
 
-1. **Build your site with the mount prefix as its base URL.** Docusaurus:
+Docusaurus:
 
-   ```js
-   // docusaurus.config.js
-   url: 'https://example.com',
-   baseUrl: '/docs/my-project/',
-   trailingSlash: true,
-   ```
+```js
+// docusaurus.config.js
+url: 'https://example.com',
+baseUrl: '/docs/my-project/',
+trailingSlash: true,
+```
 
-   MkDocs: `site_url: https://example.com/docs/my-project/`.
+MkDocs: `site_url: https://example.com/docs/my-project/`
 
-2. Open **Static Sites → Mounts → Add mount**: name `my-project`, URL prefix `docs/my-project`, type *Docusaurus*. Optional: the localStorage key of your theme's light/dark choice, and the header height if your theme's header is fixed.
-3. Deploy (see below). Done: `https://example.com/docs/my-project/`.
+Other generators have an equivalent (Hugo: `baseURL`). Then go to Static Sites, Mounts, Add mount, and fill in a name (`my-project`), the URL prefix (`docs/my-project`) and the type. Choose a generator's type if there is one (Docusaurus, MkDocs Material), otherwise "Generic static site". Two optional fields are worth knowing about: the localStorage key your theme uses for light/dark, and the height of your header if it is fixed at the top (the content is pushed down by that much).
 
 ## Deploy from CI
 
-Create an **Application Password** for an administrator (**Users → Profile**) and store it as a secret. After the build:
+Create an Application Password for an administrator account and keep it as a secret. After the build:
 
 ```bash
 cd build && zip -qr ../build.zip . && cd ..
@@ -69,84 +57,82 @@ curl -fsS -u "$WP_USER:$WP_APP_PASSWORD" \
   "https://example.com/wp-json/static-site-mount/v1/mounts/my-project/deploy"
 ```
 
-A complete GitHub Actions job is in [`examples/github-action-deploy.yml`](examples/github-action-deploy.yml). Use multipart (`-F file=@...`): PHP then keeps the upload on disk instead of in memory. A raw `--data-binary` body works for small sites.
+There is a complete GitHub Actions job in [`examples/github-action-deploy.yml`](examples/github-action-deploy.yml). Send the file as multipart; PHP then keeps it on disk instead of in memory. A raw request body also works for small sites.
 
-A zip may have its files at the root or inside a single top-level folder. A build without a top-level `index.html`, or one containing a disallowed file type (for example `.php`), is **refused and the live site stays as it was**.
+The zip can have its files at the top level or inside one folder. If the build has no top-level `index.html`, or contains a file type that is not allowed (`.php`, for example), the deploy is refused and the live site stays as it was.
 
-| Endpoint | Purpose |
+| Endpoint | What it does |
 |---|---|
-| `GET  /wp-json/static-site-mount/v1/mounts` | list mounts, page counts, last index time |
-| `PUT  /wp-json/static-site-mount/v1/mounts/<slug>` | create or update a mount (JSON) |
-| `POST /wp-json/static-site-mount/v1/mounts/<slug>/deploy` | replace the folder with an uploaded zip, re-index |
-| `POST /wp-json/static-site-mount/v1/mounts/<slug>/reindex` | re-index after files changed by other means (FTP, rsync) |
+| `GET /wp-json/static-site-mount/v1/mounts` | list mounts with page counts |
+| `PUT /wp-json/static-site-mount/v1/mounts/<name>` | create or update a mount (JSON) |
+| `POST /wp-json/static-site-mount/v1/mounts/<name>/deploy` | replace the folder with a zip, re-index |
+| `POST /wp-json/static-site-mount/v1/mounts/<name>/reindex` | re-index after changing files some other way |
 
-WP-CLI: `wp static-site-mount list | add | deploy | reindex`.
+WP-CLI: `wp static-site-mount list`, `add`, `deploy`, `reindex`.
 
 ## Mount settings
 
 | Setting | Meaning |
 |---|---|
-| Name | short name, also the default folder `wp-content/uploads/static-sites/<name>/` |
-| URL prefix | where the site appears, for example `docs/my-project`; must match the build's base URL |
-| Type | preset for the generator: Docusaurus, MkDocs Material, or generic static site |
-| Hide elements | CSS selectors hidden in addition to the preset (safe for JavaScript apps) |
+| Name | short name; also the folder name under `wp-content/uploads/static-sites/` |
+| URL prefix | where the site appears, e.g. `docs/my-project`; must match the build's base URL |
+| Type | a preset for a known generator (Docusaurus, MkDocs Material) or generic static site |
+| Hide elements | extra CSS selectors to hide (safe for JavaScript apps) |
 | Remove elements | simple selectors (`tag`, `#id`, `.class`, spaces) removed on the server |
-| Space for a fixed header | pushes the content below a fixed theme header |
+| Space for a fixed header | pixels of padding for a fixed theme header |
 | Light/dark key | localStorage key of the theme's light/dark choice |
-| Title suffix | appended to page titles |
-| Sitemap / noindex | list pages in the sitemap, or ask search engines not to index the mount |
+| Title suffix | appended to every page title |
+| Sitemap, noindex | list the pages in the sitemap, or ask search engines to skip the mount |
 
-A disabled mount is not routed and not in the sitemap; its files and settings are kept.
+A disabled mount is not routed and not in the sitemap. Its files and settings stay.
 
-## Other generators
-
-Choose *Generic static site* and set which elements to remove (for example `header.site-header, footer.site-footer`) or hide. To add a preset, use the `stasimo_presets` filter:
+For anything else, pick "Generic static site" and list what to remove, for example `header.site-header, footer.site-footer`. To reuse the same settings for other mounts, add a preset with the `stasimo_presets` filter:
 
 ```php
-add_filter( 'stasimo_presets', function ( $p ) {
-    $p['hugo-book'] = array(
+add_filter( 'stasimo_presets', function ( $presets ) {
+    $presets['hugo-book'] = array(
         'label' => 'Hugo Book', 'hide' => '.book-header, .book-footer',
         'remove' => '', 'theme_key' => '', 'css' => '',
     );
-    return $p;
+    return $presets;
 } );
 ```
 
-Other hooks: `stasimo_title`, `stasimo_description`, `stasimo_header_html`, `stasimo_footer_html`, `stasimo_host_css`, `stasimo_mime_types`, `stasimo_base_dir`, `stasimo_allow_external_dirs` (allow absolute mount folders, off by default), and the action `stasimo_deployed`.
+Other hooks: `stasimo_title`, `stasimo_description`, `stasimo_header_html`, `stasimo_footer_html`, `stasimo_host_css`, `stasimo_mime_types`, `stasimo_base_dir`, `stasimo_allow_external_dirs`, and the action `stasimo_deployed`.
+
+## Security
+
+A mounted build is HTML and JavaScript served from your own domain. Whoever can deploy can run script on your site, so only deploy builds you trust. Managing mounts therefore needs both `manage_options` and `unfiltered_html`. On multisite, site admins don't have the second one, so only super admins can use the plugin. For CI, use an Application Password of a dedicated administrator.
+
+Uploads are limited to a list of file types. Names that look executable (`shell.php.png`), paths with `..` or absolute paths, and archives larger than 512 MB unpacked or 50,000 files are refused. Mount folders always sit inside `wp-content/uploads/static-sites/`.
+
+On Apache the plugin writes an `.htaccess` that blocks direct access to that folder. On nginx you need to add `location ^~ /wp-content/uploads/static-sites/ { deny all; }` yourself, otherwise the raw files can also be fetched without the theme around them.
+
+The plugin makes no outgoing requests and stores no personal data.
+
+If you upgrade from 0.2.x, settings are migrated on the first request. A `wp-content/static-sites/` folder from the old version keeps being used until you move it.
+
+Report vulnerabilities as a [private security advisory](https://github.com/wenisch-tech/wordpress-static-site-mount/security/advisories/new), not as a public issue.
 
 ## Limitations
 
-- The mounted site's **CSS and your theme's CSS share one page.** Generator styles can collide with theme styles (headings, buttons). Check your pages and add overrides if needed.
-- **Client-side routing needs the right base URL at build time.** The plugin does not rewrite URLs inside JavaScript bundles.
-- Only the generator's own navbar and footer are replaced. Search boxes and version dropdowns that live in the navbar are hidden with it.
-- One WordPress server only: no multisite-aware paths, no CDN purging.
-- Yoast SEO is handled; Rank Math and other SEO plugins only partly.
+- The static site's CSS and your theme's CSS end up on one page and can collide (headings, buttons, fonts). Check a few pages after the first deploy and add overrides where needed.
+- Search boxes or version menus that live in a navbar that gets hidden are hidden with it. Keep the navbar and hide only parts of it if you need them.
+- One server only. There is no CDN purge, and multisite is only lightly tested.
+- Yoast SEO is handled. Other SEO plugins may still print their own tags.
 
 ## Development
 
-Contributions are welcome: fork, branch, follow the [WordPress Coding Standards](https://developer.wordpress.org/coding-standards/wordpress-coding-standards/), open a pull request against `main`.
-
 ```bash
-tests/run.sh up              # throwaway WordPress + MariaDB with the plugin, in Docker
-tests/smoke.sh http://localhost:8089 docs/product
-bin/build-zip.sh             # release zip without tests and dev files
+tests/run.sh up            # WordPress + MariaDB in Docker, plugin mounted
+tests/smoke.sh http://localhost:8089 docs/mini
+bin/build-zip.sh           # release zip without tests and dev files
 ```
 
-The release build passes [Plugin Check](https://wordpress.org/plugins/plugin-check/) without errors or warnings. To run it, start the test environment with `STASIMO_SRC=<built folder> tests/run.sh up`, install `plugin-check` and run `wp plugin check static-site-mount`.
+`tests/fixtures/` holds a small Docusaurus-like site and a deliberately hostile zip fixture. The release build is checked with [Plugin Check](https://wordpress.org/plugins/plugin-check/) (start the environment with `STASIMO_SRC=<built folder> tests/run.sh up`, install `plugin-check`, run `wp plugin check static-site-mount`).
 
-The logo and icons are generated by [`assets/src/make_logo.py`](assets/src/make_logo.py); the banner is [`assets/src/banner.html`](assets/src/banner.html).
-
-## Security model
-
-- **A mounted build is raw HTML and JavaScript served from your site's own origin.** Whoever can deploy can therefore run script on your site. Managing mounts and deploying need both `manage_options` and `unfiltered_html`; on multisite, site administrators do not have the latter, so only super admins can mount sites. Only deploy builds you trust.
-- Every route needs authentication; CI uses an [Application Password](https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/). Create it for a dedicated administrator account.
-- Deploys accept only allow-listed file types (no `.php`, no executable-looking names such as `shell.php.png`), refuse unsafe paths (`..`, absolute paths, zip-slip), cap the unpacked size at 512 MB and 50,000 files, and swap the folder atomically. Mount folders always live inside `wp-content/uploads/static-sites/`.
-- Files are served only through WordPress, with `X-Content-Type-Options: nosniff`. On **Apache** a generated `.htaccess` blocks direct access to the folder. On **nginx** add `location ^~ /wp-content/uploads/static-sites/ { deny all; }`, otherwise the raw files are also reachable without the theme wrapper.
-- The plugin makes no external requests and collects no data.
-- Upgrading from 0.2: settings are migrated automatically. Files in `wp-content/static-sites/` keep being served from there until you move them into `wp-content/uploads/static-sites/`.
-
-Please report vulnerabilities through a [private security advisory](https://github.com/wenisch-tech/wordpress-static-site-mount/security/advisories/new) rather than a public issue.
+The logo and icons are generated by [`assets/src/make_logo.py`](assets/src/make_logo.py), the banner is [`assets/src/banner.html`](assets/src/banner.html). Pull requests are welcome; follow the WordPress coding standards.
 
 ## License
 
-[GPL v2 or later](https://www.gnu.org/licenses/gpl-2.0.html), the same license as WordPress.
+GPL v2 or later, like WordPress. See [LICENSE](LICENSE).
