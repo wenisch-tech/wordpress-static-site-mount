@@ -61,6 +61,8 @@ The complete source, the logo and banner generators and the Docker test setup ar
 == Changelog ==
 
 = 0.3.0 =
+* File handling uses WP_Filesystem and core helpers; archives with forged size headers are refused; the attributes of the uploaded html and body tags are escaped.
+* Hardening for the plugin review: input sanitizing, output filtering in the admin, inline scripts and styles through the WordPress APIs.
 * Mounts are stored in the uploads folder (uploads/static-sites). An existing wp-content/static-sites folder keeps being used.
 * Internal prefix renamed from ssm to stasimo (options, hooks, CSS classes, sitemap URL /stasimo-pages.xml). Stored settings are moved automatically.
 

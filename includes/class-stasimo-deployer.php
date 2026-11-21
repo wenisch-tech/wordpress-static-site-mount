@@ -13,18 +13,7 @@ class Stasimo_Deployer {
 	const MAX_BYTES = 536870912; // 512 MB unpacked.
 
 	private static function rrmdir( $dir ) {
-		if ( ! is_dir( $dir ) ) {
-			return;
-		}
-		$it = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
-		foreach ( $it as $f ) {
-			if ( $f->isDir() && ! $f->isLink() ) {
-				rmdir( $f->getPathname() ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-			} else {
-				unlink( $f->getPathname() ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-			}
-		}
-		rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		Stasimo_Files::remove_dir( $dir );
 	}
 
 	/** Executable-looking names are refused even with an allowed last extension (shell.php.png, x.phtml.css ...). */
@@ -45,8 +34,7 @@ class Stasimo_Deployer {
 	 * Normalize a path from an archive. Returns null for entries that must be skipped, WP_Error for hostile ones.
 	 */
 	private static function safe_name( $name ) {
-		$name = str_replace( '\\', '/', $name );
-		if ( false !== strpos( $name, "\0" ) || preg_match( '#^([A-Za-z]:|/)#', $name ) ) {
+		if ( false !== strpos( $name, "\0" ) || false !== strpos( $name, '\\' ) || preg_match( '#^([A-Za-z]:|/)#', $name ) ) {
 			return new WP_Error( 'stasimo_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'static-site-mount' ), $name ) );
 		}
 		foreach ( explode( '/', $name ) as $seg ) {
@@ -105,6 +93,50 @@ class Stasimo_Deployer {
 			}
 		}
 
+		// Decide what is kept before anything is written: no dotfiles, only allowed types, nothing executable-looking.
+		$keep = array();
+		foreach ( $entries as $i => $name ) {
+			$rel = ( '' !== $strip && 0 === strpos( $name, $strip ) ) ? substr( $name, strlen( $strip ) ) : $name;
+			if ( '' === $rel || preg_match( '#(^|/)\.#', $rel ) ) {
+				continue; // dotfiles such as .nojekyll or .DS_Store are ignored.
+			}
+			$ext = strtolower( pathinfo( $rel, PATHINFO_EXTENSION ) );
+			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $rel ) ) {
+				$zip->close();
+				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $rel ) );
+			}
+			$keep[ $i ] = $name;
+		}
+
+		// The sizes in a zip header can be forged and PHP's zip library does not enforce them. Read every kept entry once, without
+		// writing, and refuse the archive if its real size differs from the header or exceeds the limit.
+		$actual = 0;
+		foreach ( $keep as $i => $name ) {
+			$stream = $zip->getStream( $zip->getNameIndex( $i ) );
+			if ( ! $stream ) {
+				$zip->close();
+				return new WP_Error( 'stasimo_badzip', __( 'The uploaded file is not a valid zip archive.', 'static-site-mount' ) );
+			}
+			$real = 0;
+			while ( ! feof( $stream ) ) {
+				$chunk = stream_get_contents( $stream, 1048576 );
+				if ( false === $chunk ) {
+					break;
+				}
+				$real += strlen( $chunk );
+				if ( $actual + $real > self::MAX_BYTES ) {
+					$zip->close();
+					return new WP_Error( 'stasimo_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
+				}
+			}
+			$declared = $zip->statIndex( $i );
+			if ( $real !== (int) $declared['size'] ) {
+				$zip->close();
+				return new WP_Error( 'stasimo_badzip', __( 'The archive is damaged: a file is not the size its header says.', 'static-site-mount' ) );
+			}
+			$actual += $real;
+		}
+
 		$dir = Stasimo_Mounts::dir( $m );
 		if ( ! self::dir_is_safe( $dir ) ) {
 			$zip->close();
@@ -112,51 +144,20 @@ class Stasimo_Deployer {
 		}
 		Stasimo_Mounts::prepare_base_dir();
 		wp_mkdir_p( dirname( $dir ) );
-		$tmp = $dir . '.stasimo-new-' . wp_generate_password( 6, false );
-		$old = $dir . '.stasimo-old-' . wp_generate_password( 6, false );
-		if ( ! wp_mkdir_p( $tmp ) ) {
+		$work = $dir . '.stasimo-new-' . wp_generate_password( 6, false );
+		$old  = $dir . '.stasimo-old-' . wp_generate_password( 6, false );
+		if ( ! wp_mkdir_p( $work ) ) {
 			$zip->close();
 			return new WP_Error( 'stasimo_mkdir', __( 'Could not create a temporary folder.', 'static-site-mount' ) );
 		}
-
-		$written = 0;
-		$actual  = 0;
-		foreach ( $entries as $i => $name ) {
-			if ( '' !== $strip && 0 === strpos( $name, $strip ) ) {
-				$name = substr( $name, strlen( $strip ) );
-			}
-			if ( '' === $name || preg_match( '#(^|/)\.#', $name ) ) {
-				continue; // dotfiles such as .nojekyll or .DS_Store are ignored.
-			}
-			$ext = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
-			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $name ) ) {
-				$zip->close();
-				self::rrmdir( $tmp );
-				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $name ) );
-			}
-			$target = $tmp . '/' . $name;
-			wp_mkdir_p( dirname( $target ) );
-			$in  = $zip->getStream( $zip->getNameIndex( $i ) );
-			$out = fopen( $target, 'wb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-			if ( ! $in || ! $out ) {
-				$zip->close();
-				self::rrmdir( $tmp );
-				return new WP_Error( 'stasimo_write', __( 'Could not write extracted files.', 'static-site-mount' ) );
-			}
-			// The size in a zip header can be forged: count what is really written.
-			$copied = stream_copy_to_stream( $in, $out, self::MAX_BYTES - $actual + 1 );
-			fclose( $in ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-			fclose( $out ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-			$actual += (int) $copied;
-			if ( $actual > self::MAX_BYTES ) {
-				$zip->close();
-				self::rrmdir( $tmp );
-				return new WP_Error( 'stasimo_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
-			}
-			$written++;
-		}
+		$done = $zip->extractTo( $work, array_map( array( $zip, 'getNameIndex' ), array_keys( $keep ) ) );
 		$zip->close();
-		return self::swap( $m, $dir, $tmp, $old, $written );
+		if ( ! $done ) {
+			self::rrmdir( $work );
+			return new WP_Error( 'stasimo_write', __( 'Could not write extracted files.', 'static-site-mount' ) );
+		}
+		$src = '' !== $strip ? $work . '/' . rtrim( $strip, '/' ) : $work;
+		return self::swap( $m, $dir, $src, $old, count( $keep ), $work );
 	}
 
 	/**
@@ -190,27 +191,35 @@ class Stasimo_Deployer {
 				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $rel ) );
 			}
 			wp_mkdir_p( dirname( $tmp . '/' . $rel ) );
-			copy( $f->getPathname(), $tmp . '/' . $rel ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			Stasimo_Files::fs()->copy( $f->getPathname(), $tmp . '/' . $rel, true );
 			$written++;
 		}
-		return self::swap( $m, $dir, $tmp, $old, $written );
+		return self::swap( $m, $dir, $tmp, $old, $written, $tmp );
 	}
 
-	private static function swap( array $m, $dir, $tmp, $old, $written ) {
-		if ( ! is_file( $tmp . '/index.html' ) ) {
-			self::rrmdir( $tmp );
+	/**
+	 * Put a finished build in place. $src is the folder with index.html, $work the temporary folder that contains it (deleted afterwards).
+	 */
+	private static function swap( array $m, $dir, $src, $old, $written, $work ) {
+		$fs = Stasimo_Files::fs();
+		if ( ! is_file( $src . '/index.html' ) ) {
+			self::rrmdir( $work );
 			return new WP_Error( 'stasimo_noindex', __( 'The build has no index.html at its top level, nothing was changed.', 'static-site-mount' ) );
 		}
-		if ( is_dir( $dir ) && ! rename( $dir, $old ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
-			self::rrmdir( $tmp );
+		// Folder moves are renames inside one filesystem, so a visitor sees either the old build or the new one.
+		if ( is_dir( $dir ) && ! $fs->move( $dir, $old, false ) ) {
+			self::rrmdir( $work );
 			return new WP_Error( 'stasimo_swap', __( 'Could not replace the existing folder.', 'static-site-mount' ) );
 		}
-		if ( ! rename( $tmp, $dir ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
+		if ( ! $fs->move( $src, $dir, false ) ) {
 			if ( is_dir( $old ) ) {
-				rename( $old, $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+				$fs->move( $old, $dir, false );
 			}
-			self::rrmdir( $tmp );
+			self::rrmdir( $work );
 			return new WP_Error( 'stasimo_swap', __( 'Could not activate the new build.', 'static-site-mount' ) );
+		}
+		if ( $work !== $src ) {
+			self::rrmdir( $work ); // the wrapper folder of an unwrapped build.
 		}
 		self::rrmdir( $old );
 		$idx = Stasimo_Indexer::reindex( $m );

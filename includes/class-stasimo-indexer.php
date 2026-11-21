@@ -60,7 +60,7 @@ class Stasimo_Indexer {
 			if ( count( $list ) >= self::MAX_FILES ) {
 				break;
 			}
-			$head = (string) file_get_contents( $file->getPathname(), false, null, 0, 65536 ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			$head = substr( (string) Stasimo_Files::fs()->get_contents( $file->getPathname() ), 0, 65536 );
 			if ( preg_match( '/<head[^>]*>(.*?)<\/head>/is', $head, $hm ) ) {
 				$head = $hm[1];
 			}

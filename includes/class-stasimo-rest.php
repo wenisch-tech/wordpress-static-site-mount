@@ -140,8 +140,9 @@ class Stasimo_Rest {
 				delete_option( $lock );
 				return new WP_Error( 'stasimo_empty', __( 'Send the zip as multipart field "file" or as the request body.', 'static-site-mount' ), array( 'status' => 400 ) );
 			}
-			$tmp = tempnam( get_temp_dir(), 'stasimo-' );
-			if ( false === $tmp || false === file_put_contents( $tmp, $body ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
+			$fs  = Stasimo_Files::fs(); // also loads wp-admin/includes/file.php, which wp_tempnam() lives in.
+			$tmp = wp_tempnam( 'stasimo-upload.zip', get_temp_dir() );
+			if ( ! $tmp || ! $fs->put_contents( $tmp, $body, FS_CHMOD_FILE ) ) {
 				delete_option( $lock );
 				return new WP_Error( 'stasimo_tmp', __( 'Could not store the upload.', 'static-site-mount' ), array( 'status' => 500 ) );
 			}
@@ -150,7 +151,7 @@ class Stasimo_Rest {
 
 		$res = Stasimo_Deployer::deploy_zip( $m, $tmp );
 		if ( $cleanup && $tmp ) {
-			unlink( $tmp ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			wp_delete_file( $tmp );
 		}
 		delete_option( $lock );
 

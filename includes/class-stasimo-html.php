@@ -52,6 +52,37 @@ class Stasimo_HTML {
 	}
 
 	/**
+	 * Rebuild a tag's attribute string from scratch: every name is checked and every value goes through esc_attr(), so what is
+	 * printed for <html> and <body> is escaped even though the file it came from is not.
+	 *
+	 * @param string $raw       Attribute text from the original tag.
+	 * @param string $add_class Optional class to add.
+	 */
+	public static function safe_attrs( $raw, $add_class = '' ) {
+		$attrs = array();
+		if ( preg_match_all( '/([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'>=`]+)))?/', (string) $raw, $mm, PREG_SET_ORDER ) ) {
+			foreach ( $mm as $a ) {
+				$val = '';
+				foreach ( array( 4, 3, 2 ) as $k ) {
+					if ( isset( $a[ $k ] ) && '' !== $a[ $k ] ) {
+						$val = $a[ $k ];
+						break;
+					}
+				}
+				$attrs[ $a[1] ] = html_entity_decode( $val, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+			}
+		}
+		if ( '' !== $add_class ) {
+			$attrs['class'] = trim( ( isset( $attrs['class'] ) ? $attrs['class'] . ' ' : '' ) . $add_class );
+		}
+		$out = array();
+		foreach ( $attrs as $name => $val ) {
+			$out[] = '' === $val && 'class' !== $name && ! preg_match( '/^(lang|dir|id|style|data-|aria-)/i', $name ) ? $name : $name . '="' . esc_attr( $val ) . '"';
+		}
+		return implode( ' ', $out );
+	}
+
+	/**
 	 * Read what search engines care about from a document head.
 	 *
 	 * @return array{title:string, description:string, robots:string, image:string, canonical:string}

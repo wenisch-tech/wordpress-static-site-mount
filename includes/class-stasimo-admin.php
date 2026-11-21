@@ -94,7 +94,7 @@ class Stasimo_Admin {
 	public static function save() {
 		self::guard();
 		check_admin_referer( 'stasimo_save' );
-		$raw      = isset( $_POST['stasimo'] ) && is_array( $_POST['stasimo'] ) ? wp_unslash( $_POST['stasimo'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$raw      = isset( $_POST['stasimo'] ) && is_array( $_POST['stasimo'] ) ? map_deep( wp_unslash( $_POST['stasimo'] ), 'sanitize_text_field' ) : array(); // Every field is cleaned again in Stasimo_Mounts::sanitize().
 		$original = isset( $_POST['stasimo_original'] ) ? sanitize_title( wp_unslash( $_POST['stasimo_original'] ) ) : '';
 		$all      = Stasimo_Mounts::all();
 		if ( '' !== $original && isset( $all[ $original ] ) ) {
@@ -115,7 +115,7 @@ class Stasimo_Admin {
 		$all[ $m['slug'] ] = $m;
 		Stasimo_Mounts::save_all( $all );
 		Stasimo_Mounts::prepare_base_dir();
-		self::back( '' === $original ? __( 'Mount created. Upload the build next (see "Deploy" below).', 'static-site-mount' ) : __( 'Saved.', 'static-site-mount' ), 'success', array( 'mount' => $m['slug'] ) );
+		self::back( '' === $original ? __( 'Mount created. Upload the build next (see Deploy below).', 'static-site-mount' ) : __( 'Saved.', 'static-site-mount' ), 'success', array( 'mount' => $m['slug'] ) );
 	}
 
 	public static function reindex() {
@@ -226,7 +226,7 @@ class Stasimo_Admin {
 					<td><?php echo esc_html( isset( $presets[ $m['preset'] ] ) ? $presets[ $m['preset'] ]['label'] : $m['preset'] ); ?></td>
 					<td><?php echo esc_html( (string) count( $idx['pages'] ) ); ?></td>
 					<td><?php echo $idx['time'] ? esc_html( human_time_diff( $idx['time'] ) . ' ' . __( 'ago', 'static-site-mount' ) ) : '&ndash;'; ?></td>
-					<td><?php echo self::badge( $m ); // phpcs:ignore WordPress.Security.EscapeOutput ?></td>
+					<td><?php echo wp_kses( self::badge( $m ), self::allowed_html() ); ?></td>
 					<td>
 						<div class="stasimo-actions">
 							<a class="button" href="<?php echo esc_url( self::url( array( 'mount' => $slug ) ) ); ?>"><?php esc_html_e( 'Details', 'static-site-mount' ); ?></a>
@@ -242,8 +242,27 @@ class Stasimo_Admin {
 
 	/* ----------------------------------------------- detail / new (one form) */
 
+	/** The form controls and badges this screen prints itself (values are escaped when built, this is the final filter). */
+	private static function allowed_html() {
+		$field = array(
+			'type' => true, 'class' => true, 'name' => true, 'value' => true, 'id' => true, 'placeholder' => true,
+			'min' => true, 'max' => true, 'step' => true, 'checked' => true, 'readonly' => true, 'disabled' => true, 'rows' => true,
+		);
+		return array(
+			'input'    => $field,
+			'select'   => $field,
+			'option'   => array( 'value' => true, 'selected' => true ),
+			'textarea' => $field,
+			'label'    => array( 'for' => true, 'class' => true ),
+			'span'     => array( 'class' => true ),
+			'div'      => array( 'class' => true ),
+			'code'     => array(),
+			'br'       => array(),
+		);
+	}
+
 	private static function field_row( $label, $help, $input ) {
-		echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . $input; // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . wp_kses( $input, self::allowed_html() );
 		if ( $help ) {
 			echo '<p class="description">' . esc_html( $help ) . '</p>';
 		}
@@ -262,7 +281,7 @@ class Stasimo_Admin {
 			<h1><?php echo $is_new ? esc_html__( 'Add mount', 'static-site-mount' ) : esc_html( $slug ); ?></h1>
 			<?php
 			if ( ! $is_new ) {
-				echo self::badge( $m ); // phpcs:ignore WordPress.Security.EscapeOutput
+				echo wp_kses( self::badge( $m ), self::allowed_html() );
 			}
 			?>
 		</div>
@@ -421,7 +440,7 @@ class Stasimo_Admin {
 
 	private static function check_row( $label, $ok, $note ) {
 		$badge = true === $ok ? '<span class="stasimo-badge stasimo-badge--on">OK</span>' : ( false === $ok ? '<span class="stasimo-badge stasimo-badge--warn">Check</span>' : '<span class="stasimo-badge stasimo-badge--info">Info</span>' );
-		echo '<tr><td>' . esc_html( $label ) . '</td><td>' . $badge . '</td><td>' . esc_html( $note ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '<tr><td>' . esc_html( $label ) . '</td><td>' . wp_kses( $badge, self::allowed_html() ) . '</td><td>' . esc_html( $note ) . '</td></tr>';
 	}
 
 	public static function page_about() {
@@ -430,7 +449,7 @@ class Stasimo_Admin {
 		$block    = function_exists( 'wp_is_block_theme' ) && wp_is_block_theme();
 		$pretty   = '' !== (string) get_option( 'permalink_structure' );
 		$yoast    = defined( 'WPSEO_VERSION' );
-		$writable = is_dir( $base ) ? is_writable( $base ) : is_writable( dirname( $base ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		$writable = is_dir( $base ) ? wp_is_writable( $base ) : wp_is_writable( dirname( $base ) );
 		?>
 		<div class="wrap stasimo-wrap stasimo-about">
 			<div class="stasimo-head">

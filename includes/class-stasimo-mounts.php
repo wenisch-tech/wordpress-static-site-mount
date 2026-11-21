@@ -267,11 +267,11 @@ class Stasimo_Mounts {
 		$ht = $base . '/.htaccess';
 		if ( is_dir( $base ) && ! file_exists( $ht ) ) {
 			// Files are served through WordPress so the theme wrapper, SEO and caching rules always apply.
-			file_put_contents( $ht, "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			Stasimo_Files::fs()->put_contents( $ht, "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n", FS_CHMOD_FILE );
 		}
 		$ix = $base . '/index.php';
 		if ( is_dir( $base ) && ! file_exists( $ix ) ) {
-			file_put_contents( $ix, "<?php\n// Silence is golden.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			Stasimo_Files::fs()->put_contents( $ix, "<?php\n// Silence is golden.\n", FS_CHMOD_FILE );
 		}
 	}
 }

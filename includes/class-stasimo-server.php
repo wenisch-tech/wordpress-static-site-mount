@@ -78,11 +78,17 @@ class Stasimo_Server {
 	}
 
 	/**
+	 * The request URI with percent-encoding intact (sanitize_text_field() would strip it), cleaned with esc_url_raw().
+	 */
+	private static function request_uri() {
+		return isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+	}
+
+	/**
 	 * Path relative to the mount, taken from the real request URI so a trailing slash is not lost.
 	 */
 	private static function requested_path( array $m ) {
-		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : ''; // phpcs:ignore WordPress.Security
-		$path = (string) wp_parse_url( $uri, PHP_URL_PATH );
+		$path = (string) wp_parse_url( self::request_uri(), PHP_URL_PATH );
 		$home = (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH );
 		if ( '' !== $home && '/' !== $home && 0 === strpos( $path, $home ) ) {
 			$path = '/' . ltrim( substr( $path, strlen( $home ) ), '/' );
@@ -153,7 +159,7 @@ class Stasimo_Server {
 		if ( null === $rel ) {
 			return;
 		}
-		$uri_path = (string) wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '', PHP_URL_PATH ); // phpcs:ignore WordPress.Security
+		$uri_path = (string) wp_parse_url( self::request_uri(), PHP_URL_PATH );
 		$slash    = '/' === substr( $uri_path, -1 );
 		$rel_req  = $rel . ( $slash && '' !== $rel ? '/' : '' );
 
@@ -178,8 +184,9 @@ class Stasimo_Server {
 			// (This includes the mount root itself: relative URLs such as assets/x.css break without the slash.)
 			if ( $found['dir_index'] && ! $slash ) {
 				$to = Stasimo_Mounts::url( $m, '' === $rel ? '' : $rel . '/' );
-				if ( ! empty( $_SERVER['QUERY_STRING'] ) ) {
-					$to .= '?' . wp_unslash( $_SERVER['QUERY_STRING'] ); // phpcs:ignore WordPress.Security
+				$query = (string) wp_parse_url( self::request_uri(), PHP_URL_QUERY );
+				if ( '' !== $query ) {
+					$to .= '?' . $query;
 				}
 				wp_safe_redirect( $to, 301 );
 				exit;
@@ -209,8 +216,8 @@ class Stasimo_Server {
 		header( 'Last-Modified: ' . gmdate( 'D, d M Y H:i:s', $mtime ) . ' GMT' );
 		header( 'Cache-Control: public, max-age=' . ( $hashed ? '31536000, immutable' : '3600' ) );
 
-		$inm = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? trim( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) : ''; // phpcs:ignore WordPress.Security
-		$ims = isset( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ? strtotime( wp_unslash( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ) : false; // phpcs:ignore WordPress.Security
+		$inm = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? trim( sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) ) : '';
+		$ims = isset( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ? strtotime( sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ) ) : false;
 		if ( $inm === $etag || ( '' === $inm && false !== $ims && $ims >= $mtime ) ) {
 			status_header( 304 );
 			exit;
@@ -220,7 +227,8 @@ class Stasimo_Server {
 		if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'HEAD' === $_SERVER['REQUEST_METHOD'] ) {
 			exit;
 		}
-		readfile( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		// Streams the file straight to the client. WP_Filesystem has no streaming read, and these files live in our own uploads folder.
+		readfile( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
 		exit;
 	}
 }

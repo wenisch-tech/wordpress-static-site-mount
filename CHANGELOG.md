@@ -1,6 +1,11 @@
 # Changelog
 
 ## 0.3.0
+- File handling now uses WordPress APIs: `WP_Filesystem` (direct method, own folder in uploads only) for reads, writes, copies and the atomic folder swap, `wp_delete_file()`, `wp_tempnam()`, `wp_is_writable()`, and `ZipArchive::extractTo()` for extraction. Only `readfile()` remains, for streaming large assets.
+- Zip archives are read once without writing before they are extracted; an archive whose real file sizes differ from its headers is refused (PHP's zip library does not enforce the header sizes). Entries with backslashes in their names are refused.
+- The attributes of the uploaded `<html>` and `<body>` tags are rebuilt and escaped with `esc_attr()` instead of being printed as found.
+- Fix: deploying a raw request body (not multipart) caused a fatal error in the new temp-file code; found in testing before release.
+- Review hardening: request values are sanitized (`esc_url_raw`, `sanitize_text_field`) instead of blanket `phpcs:ignore`; admin form fields and badges go through `wp_kses`; the admin form input is sanitized with `map_deep()`; inline JavaScript and CSS on mounted pages are printed with `wp_print_inline_script_tag()` and `wp_add_inline_style()`; every remaining unescaped output carries a written reason.
 - Mounts are stored in the uploads folder (`uploads/static-sites`, per site on multisite). An existing `wp-content/static-sites` folder keeps being used while the new one does not exist.
 - The internal prefix changed from `ssm` to `stasimo`: options, hooks (`stasimo_presets`, `stasimo_base_dir` ...), CSS classes (`.stasimo-host`), the sitemap URL (`/stasimo-pages.xml`) and the test setup. Stored settings are migrated automatically on the first request.
 - The name, text domain, REST namespace (`static-site-mount/v1`) and WP-CLI command (`wp static-site-mount`) are unchanged.
