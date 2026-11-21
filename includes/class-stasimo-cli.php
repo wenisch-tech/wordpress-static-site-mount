@@ -17,7 +17,7 @@ class Stasimo_CLI {
 	 *
 	 * @subcommand list
 	 */
-	public function list_( $args, $assoc ) {
+	public function list_() {
 		$rows = array();
 		foreach ( Stasimo_Mounts::all() as $slug => $m ) {
 			$m      = wp_parse_args( $m, Stasimo_Mounts::defaults() );
@@ -54,6 +54,9 @@ class Stasimo_CLI {
 	 *
 	 * [--host-theme-key=<key>]
 	 * : localStorage key of the host theme's light/dark choice.
+	 *
+	 * @param array $args  Positional arguments: the mount name.
+	 * @param array $assoc Named options.
 	 */
 	public function add( $args, $assoc ) {
 		$raw = array(
@@ -64,11 +67,11 @@ class Stasimo_CLI {
 			'header_offset'  => isset( $assoc['header-offset'] ) ? $assoc['header-offset'] : 0,
 			'host_theme_key' => isset( $assoc['host-theme-key'] ) ? $assoc['host-theme-key'] : '',
 		);
-		$m = Stasimo_Mounts::sanitize( $raw );
+		$m   = Stasimo_Mounts::sanitize( $raw );
 		if ( is_wp_error( $m ) ) {
 			WP_CLI::error( $m->get_error_message() );
 		}
-		$all              = Stasimo_Mounts::all();
+		$all               = Stasimo_Mounts::all();
 		$all[ $m['slug'] ] = $m;
 		Stasimo_Mounts::save_all( $all );
 		Stasimo_Mounts::prepare_base_dir();
@@ -82,6 +85,8 @@ class Stasimo_CLI {
 	 *
 	 * [<slug>]
 	 * : Mount to index (default: all).
+	 *
+	 * @param array $args Positional arguments: an optional mount name.
 	 */
 	public function reindex( $args ) {
 		$all = Stasimo_Mounts::all();
@@ -108,6 +113,8 @@ class Stasimo_CLI {
 	 *
 	 * <path>
 	 * : Zip file or folder.
+	 *
+	 * @param array $args Positional arguments: the mount name and the zip file or folder.
 	 */
 	public function deploy( $args ) {
 		$m = Stasimo_Mounts::get( $args[0] );

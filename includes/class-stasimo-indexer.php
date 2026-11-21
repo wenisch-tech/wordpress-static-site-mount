@@ -7,16 +7,28 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Scans a mount's folder and stores title, description and modification time per page.
+ */
 class Stasimo_Indexer {
 
 	const MAX_FILES = 20000;
 
+	/**
+	 * Name of the option that holds the page index of a mount.
+	 *
+	 * @param string $slug Mount name.
+	 * @return string
+	 */
 	public static function option_name( $slug ) {
 		return 'stasimo_index_' . $slug;
 	}
 
 	/**
 	 * URL path (relative to the mount) for an HTML file. foo/index.html => foo/ , foo.html => foo.html.
+	 *
+	 * @param string $relative File path relative to the mount folder.
+	 * @return string
 	 */
 	public static function url_path( $relative ) {
 		$relative = str_replace( '\\', '/', $relative );
@@ -32,6 +44,7 @@ class Stasimo_Indexer {
 	/**
 	 * Rebuild the index for one mount.
 	 *
+	 * @param array $m Mount.
 	 * @return array|WP_Error {count:int, time:int}
 	 */
 	public static function reindex( array $m ) {
@@ -64,7 +77,7 @@ class Stasimo_Indexer {
 			if ( preg_match( '/<head[^>]*>(.*?)<\/head>/is', $head, $hm ) ) {
 				$head = $hm[1];
 			}
-			$seo  = Stasimo_HTML::seo( $head );
+			$seo                            = Stasimo_HTML::seo( $head );
 			$list[ self::url_path( $rel ) ] = array(
 				't' => $seo['title'],
 				'd' => $seo['description'],
@@ -87,6 +100,12 @@ class Stasimo_Indexer {
 		);
 	}
 
+	/**
+	 * Stored page index of a mount.
+	 *
+	 * @param string $slug Mount name.
+	 * @return array
+	 */
 	public static function get( $slug ) {
 		$data = get_option( self::option_name( $slug ), array() );
 		return is_array( $data ) && isset( $data['pages'] ) ? $data : array(

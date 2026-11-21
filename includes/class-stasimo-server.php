@@ -7,6 +7,9 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Routing: maps /<prefix>/... to files in the mount folder and serves them safely.
+ */
 class Stasimo_Server {
 
 	/** Extensions that may be served. Anything else (php, htaccess, sh ...) never leaves the folder. */
@@ -14,38 +17,41 @@ class Stasimo_Server {
 		return apply_filters(
 			'stasimo_mime_types',
 			array(
-				'html' => 'text/html; charset=UTF-8',
-				'htm'  => 'text/html; charset=UTF-8',
-				'css'  => 'text/css; charset=UTF-8',
-				'js'   => 'application/javascript; charset=UTF-8',
-				'mjs'  => 'application/javascript; charset=UTF-8',
-				'json' => 'application/json; charset=UTF-8',
-				'map'  => 'application/json; charset=UTF-8',
-				'xml'  => 'application/xml; charset=UTF-8',
-				'txt'  => 'text/plain; charset=UTF-8',
-				'svg'  => 'image/svg+xml',
-				'png'  => 'image/png',
-				'jpg'  => 'image/jpeg',
-				'jpeg' => 'image/jpeg',
-				'gif'  => 'image/gif',
-				'webp' => 'image/webp',
-				'avif' => 'image/avif',
-				'ico'  => 'image/x-icon',
-				'woff' => 'font/woff',
-				'woff2' => 'font/woff2',
-				'ttf'  => 'font/ttf',
-				'otf'  => 'font/otf',
-				'eot'  => 'application/vnd.ms-fontobject',
+				'html'        => 'text/html; charset=UTF-8',
+				'htm'         => 'text/html; charset=UTF-8',
+				'css'         => 'text/css; charset=UTF-8',
+				'js'          => 'application/javascript; charset=UTF-8',
+				'mjs'         => 'application/javascript; charset=UTF-8',
+				'json'        => 'application/json; charset=UTF-8',
+				'map'         => 'application/json; charset=UTF-8',
+				'xml'         => 'application/xml; charset=UTF-8',
+				'txt'         => 'text/plain; charset=UTF-8',
+				'svg'         => 'image/svg+xml',
+				'png'         => 'image/png',
+				'jpg'         => 'image/jpeg',
+				'jpeg'        => 'image/jpeg',
+				'gif'         => 'image/gif',
+				'webp'        => 'image/webp',
+				'avif'        => 'image/avif',
+				'ico'         => 'image/x-icon',
+				'woff'        => 'font/woff',
+				'woff2'       => 'font/woff2',
+				'ttf'         => 'font/ttf',
+				'otf'         => 'font/otf',
+				'eot'         => 'application/vnd.ms-fontobject',
 				'webmanifest' => 'application/manifest+json',
-				'pdf'  => 'application/pdf',
-				'mp4'  => 'video/mp4',
-				'webm' => 'video/webm',
-				'wasm' => 'application/wasm',
-				'gz'   => 'application/gzip',
+				'pdf'         => 'application/pdf',
+				'mp4'         => 'video/mp4',
+				'webm'        => 'video/webm',
+				'wasm'        => 'application/wasm',
+				'gz'          => 'application/gzip',
 			)
 		);
 	}
 
+	/**
+	 * Register the rewrite rules, the query variables and the request handlers.
+	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_rewrites' ) );
 		add_filter( 'query_vars', array( __CLASS__, 'query_vars' ) );
@@ -53,12 +59,21 @@ class Stasimo_Server {
 		add_action( 'init', array( __CLASS__, 'maybe_flush' ), 99 );
 	}
 
+	/**
+	 * Add this plugin's query variables.
+	 *
+	 * @param string[] $vars Registered query variables.
+	 * @return string[]
+	 */
 	public static function query_vars( $vars ) {
 		$vars[] = 'stasimo_mount';
 		$vars[] = 'stasimo_sitemap';
 		return $vars;
 	}
 
+	/**
+	 * Add one rewrite rule per active mount, and one for the sitemap.
+	 */
 	public static function register_rewrites() {
 		foreach ( Stasimo_Mounts::active() as $slug => $m ) {
 			if ( empty( $m['prefix'] ) ) {
@@ -86,6 +101,8 @@ class Stasimo_Server {
 
 	/**
 	 * Path relative to the mount, taken from the real request URI so a trailing slash is not lost.
+	 *
+	 * @param array $m Mount.
 	 */
 	private static function requested_path( array $m ) {
 		$path = (string) wp_parse_url( self::request_uri(), PHP_URL_PATH );
@@ -104,6 +121,8 @@ class Stasimo_Server {
 	/**
 	 * Resolve a request path to a file inside the mount folder.
 	 *
+	 * @param string $base_dir Absolute mount folder.
+	 * @param string $rel      Path relative to the mount, as requested.
 	 * @return array|null {file:string, dir_index:bool}
 	 */
 	public static function resolve( $base_dir, $rel ) {
@@ -146,6 +165,9 @@ class Stasimo_Server {
 		return null;
 	}
 
+	/**
+	 * Serve the requested page or file of a mount, or let WordPress show its 404.
+	 */
 	public static function handle() {
 		$slug = get_query_var( 'stasimo_mount' );
 		if ( '' === $slug || null === $slug ) {
@@ -180,10 +202,10 @@ class Stasimo_Server {
 
 		$ext = strtolower( pathinfo( $found['file'], PATHINFO_EXTENSION ) );
 		if ( in_array( $ext, array( 'html', 'htm' ), true ) ) {
-			// Folder pages live at ".../name/": redirect "name" to "name/" (keeps relative links working).
-			// (This includes the mount root itself: relative URLs such as assets/x.css break without the slash.)
+			// Folder pages live at ".../name/": redirect "name" to "name/", which keeps relative links working.
+			// This includes the mount root itself, because relative URLs such as assets/x.css break without the slash.
 			if ( $found['dir_index'] && ! $slash ) {
-				$to = Stasimo_Mounts::url( $m, '' === $rel ? '' : $rel . '/' );
+				$to    = Stasimo_Mounts::url( $m, '' === $rel ? '' : $rel . '/' );
 				$query = (string) wp_parse_url( self::request_uri(), PHP_URL_QUERY );
 				if ( '' !== $query ) {
 					$to .= '?' . $query;
@@ -200,6 +222,12 @@ class Stasimo_Server {
 		self::send_file( $found['file'], $types[ $ext ] );
 	}
 
+	/**
+	 * Send a file with caching headers and answer conditional requests.
+	 *
+	 * @param string $file Absolute path.
+	 * @param string $mime Content type.
+	 */
 	private static function send_file( $file, $mime ) {
 		$mtime = (int) filemtime( $file );
 		$size  = (int) filesize( $file );
@@ -224,11 +252,13 @@ class Stasimo_Server {
 		}
 		status_header( 200 );
 		header( 'Content-Length: ' . $size );
-		if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'HEAD' === $_SERVER['REQUEST_METHOD'] ) {
+		if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'HEAD' === sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) {
 			exit;
 		}
-		// Streams the file straight to the client. WP_Filesystem has no streaming read, and these files live in our own uploads folder.
-		readfile( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+		// WordPress has no function that streams a file to the client (core itself calls readfile() in ms-files.php), and
+		// WP_Filesystem::get_contents() would load the whole file into memory. SplFileObject sends it in constant memory.
+		$handle = new SplFileObject( $file, 'rb' );
+		$handle->fpassthru();
 		exit;
 	}
 }

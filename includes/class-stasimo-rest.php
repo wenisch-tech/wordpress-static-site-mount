@@ -8,16 +8,30 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * REST API for CI: list mounts, create a mount, re-index and deploy a zip.
+ */
 class Stasimo_Rest {
 
+	/**
+	 * Register the REST routes.
+	 */
 	public static function init() {
 		add_action( 'rest_api_init', array( __CLASS__, 'routes' ) );
 	}
 
+	/**
+	 * Permission check of every route.
+	 *
+	 * @return bool
+	 */
 	public static function can() {
 		return Stasimo_Mounts::can_manage();
 	}
 
+	/**
+	 * Register the routes of the stasimo/v1 namespace.
+	 */
 	public static function routes() {
 		register_rest_route(
 			'stasimo/v1',
@@ -104,6 +118,8 @@ class Stasimo_Rest {
 
 	/**
 	 * Accepts a multipart upload (field "file", recommended: no memory spike) or a raw zip body.
+	 *
+	 * @param WP_REST_Request $req Request with the mount name and the zip.
 	 */
 	public static function deploy( WP_REST_Request $req ) {
 		$m = Stasimo_Mounts::get( $req['slug'] );
@@ -165,6 +181,7 @@ class Stasimo_Rest {
 	/**
 	 * Atomic lock: add_option() fails if the row exists. A lock older than 5 minutes is treated as stale.
 	 *
+	 * @param string $slug Mount name.
 	 * @return string Option name of the lock, or '' if a deploy is running.
 	 */
 	private static function lock( $slug ) {
@@ -179,6 +196,12 @@ class Stasimo_Rest {
 		return '';
 	}
 
+	/**
+	 * Explain a PHP upload error in plain words.
+	 *
+	 * @param int $code PHP upload error code.
+	 * @return string
+	 */
 	private static function upload_error( $code ) {
 		if ( UPLOAD_ERR_INI_SIZE === $code || UPLOAD_ERR_FORM_SIZE === $code ) {
 			return sprintf(

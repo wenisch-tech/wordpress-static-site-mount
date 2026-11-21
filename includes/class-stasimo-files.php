@@ -7,9 +7,16 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * File helpers on top of WP_Filesystem, for the folders this plugin owns inside the uploads directory.
+ */
 class Stasimo_Files {
 
-	/** @var WP_Filesystem_Base|null */
+	/**
+	 * The filesystem object, created on first use.
+	 *
+	 * @var WP_Filesystem_Base|null
+	 */
 	private static $fs = null;
 
 	/**
@@ -30,12 +37,19 @@ class Stasimo_Files {
 		return self::$fs;
 	}
 
+	/**
+	 * Filter callback: use the direct filesystem method.
+	 *
+	 * @return string
+	 */
 	public static function direct() {
 		return 'direct';
 	}
 
 	/**
 	 * Delete a folder with everything in it. Symbolic links are removed themselves, never followed.
+	 *
+	 * @param string $dir Absolute folder path.
 	 */
 	public static function remove_dir( $dir ) {
 		if ( ! is_dir( $dir ) ) {

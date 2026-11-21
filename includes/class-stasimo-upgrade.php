@@ -7,12 +7,21 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * One-time move of settings stored by versions before 0.3.0 (option prefix ssm) to the stasimo prefix.
+ */
 class Stasimo_Upgrade {
 
+	/**
+	 * Run the move early, before the rewrite rules are built.
+	 */
 	public static function init() {
 		add_action( 'plugins_loaded', array( __CLASS__, 'run' ), 1 );
 	}
 
+	/**
+	 * Copy the old options to the new names and delete the old ones.
+	 */
 	public static function run() {
 		$old = get_option( 'ssm_mounts', null );
 		if ( null === $old ) {

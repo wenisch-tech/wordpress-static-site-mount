@@ -7,11 +7,17 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Admin screens: the top-level Static Sites menu with Mounts (list, add, detail) and About.
+ */
 class Stasimo_Admin {
 
 	const PAGE       = 'stasimo';
 	const PAGE_ABOUT = 'stasimo-about';
 
+	/**
+	 * Register the menu, the stylesheet, the form handlers and the plugin action link.
+	 */
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
@@ -24,17 +30,31 @@ class Stasimo_Admin {
 
 	/* ------------------------------------------------------------------ menu */
 
+	/**
+	 * Add a Mounts link to this plugin's row on the Plugins screen.
+	 *
+	 * @param string[] $links Existing action links.
+	 * @return string[]
+	 */
 	public static function links( $links ) {
 		array_unshift( $links, '<a href="' . esc_url( self::url() ) . '">' . esc_html__( 'Mounts', 'stasimo-static-site-mount' ) . '</a>' );
 		return $links;
 	}
 
+	/**
+	 * Register the Static Sites menu with its Mounts and About screens.
+	 */
 	public static function menu() {
 		add_menu_page( __( 'Static Sites', 'stasimo-static-site-mount' ), __( 'Static Sites', 'stasimo-static-site-mount' ), 'manage_options', self::PAGE, array( __CLASS__, 'page_mounts' ), 'dashicons-networking', 58 );
 		add_submenu_page( self::PAGE, __( 'Mounts', 'stasimo-static-site-mount' ), __( 'Mounts', 'stasimo-static-site-mount' ), 'manage_options', self::PAGE, array( __CLASS__, 'page_mounts' ) );
 		add_submenu_page( self::PAGE, __( 'About Stasimo', 'stasimo-static-site-mount' ), __( 'About', 'stasimo-static-site-mount' ), 'manage_options', self::PAGE_ABOUT, array( __CLASS__, 'page_about' ) );
 	}
 
+	/**
+	 * Load the admin stylesheet on this plugin's screens only.
+	 *
+	 * @param string $hook Hook suffix of the current admin page.
+	 */
 	public static function assets( $hook ) {
 		if ( false === strpos( (string) $hook, 'stasimo' ) ) {
 			return;
@@ -44,25 +64,62 @@ class Stasimo_Admin {
 
 	/* --------------------------------------------------------------- helpers */
 
+	/**
+	 * Admin URL of the Mounts screen, with extra query arguments.
+	 *
+	 * @param array $args Query arguments to add.
+	 * @return string
+	 */
 	private static function url( $args = array() ) {
 		return add_query_arg( array_merge( array( 'page' => self::PAGE ), $args ), admin_url( 'admin.php' ) );
 	}
 
+	/**
+	 * Nonce-protected admin-post URL for an action on one mount.
+	 *
+	 * @param string $action Action name.
+	 * @param string $slug   Mount name.
+	 * @return string
+	 */
 	private static function action_url( $action, $slug ) {
 		return wp_nonce_url( admin_url( 'admin-post.php?action=' . $action . '&slug=' . rawurlencode( $slug ) ), $action . '_' . $slug );
 	}
 
+	/**
+	 * Redirect to the Mounts screen with a message, then stop.
+	 *
+	 * @param string $notice Message to show.
+	 * @param string $type   Either success or error.
+	 * @param array  $args   Extra query arguments.
+	 */
 	private static function back( $notice, $type = 'success', $args = array() ) {
-		wp_safe_redirect( add_query_arg( array_merge( $args, array( 'stasimo_notice' => $notice, 'stasimo_type' => $type ) ), self::url( $args ) ) );
+		wp_safe_redirect(
+			add_query_arg(
+				array_merge(
+					$args,
+					array(
+						'stasimo_notice' => $notice,
+						'stasimo_type'   => $type,
+					)
+				),
+				self::url( $args )
+			)
+		);
 		exit;
 	}
 
+	/**
+	 * Stop the request unless the current user may manage mounts.
+	 */
 	private static function guard() {
 		if ( ! Stasimo_Mounts::can_manage() ) {
 			wp_die( esc_html__( 'Not allowed. Managing mounts needs the manage_options and unfiltered_html capabilities, because a mounted build can contain JavaScript.', 'stasimo-static-site-mount' ), '', array( 'response' => 403 ) );
 		}
 	}
 
+	/**
+	 * Print the message passed along in a redirect, if there is one.
+	 */
 	private static function notice() {
 		// Display-only message after a redirect; escaped on output, no state change.
 		// phpcs:disable WordPress.Security.NonceVerification
@@ -74,6 +131,12 @@ class Stasimo_Admin {
 		}
 	}
 
+	/**
+	 * Status of a mount as a pair of CSS modifier and label.
+	 *
+	 * @param array $m Mount.
+	 * @return string[]
+	 */
 	private static function status( array $m ) {
 		if ( ! $m['enabled'] ) {
 			return array( 'off', __( 'Disabled', 'stasimo-static-site-mount' ) );
@@ -84,6 +147,12 @@ class Stasimo_Admin {
 		return array( 'on', __( 'Active', 'stasimo-static-site-mount' ) );
 	}
 
+	/**
+	 * Escaped HTML of a mount's status badge.
+	 *
+	 * @param array $m Mount.
+	 * @return string
+	 */
 	private static function badge( array $m ) {
 		$s = self::status( $m );
 		return '<span class="stasimo-badge stasimo-badge--' . esc_attr( $s[0] ) . '">' . esc_html( $s[1] ) . '</span>';
@@ -91,6 +160,9 @@ class Stasimo_Admin {
 
 	/* -------------------------------------------------------------- handlers */
 
+	/**
+	 * Handle the add and edit form: validate, check conflicts and store the mount.
+	 */
 	public static function save() {
 		self::guard();
 		check_admin_referer( 'stasimo_save' );
@@ -118,6 +190,9 @@ class Stasimo_Admin {
 		self::back( '' === $original ? __( 'Mount created. Upload the build next (see Deploy below).', 'stasimo-static-site-mount' ) : __( 'Saved.', 'stasimo-static-site-mount' ), 'success', array( 'mount' => $m['slug'] ) );
 	}
 
+	/**
+	 * Handle the re-index button of a mount.
+	 */
 	public static function reindex() {
 		self::guard();
 		$slug = isset( $_GET['slug'] ) ? sanitize_title( wp_unslash( $_GET['slug'] ) ) : '';
@@ -134,6 +209,9 @@ class Stasimo_Admin {
 		self::back( sprintf( __( 'Indexed %d pages.', 'stasimo-static-site-mount' ), $r['count'] ), 'success', array( 'mount' => $slug ) );
 	}
 
+	/**
+	 * Handle the enable and disable button of a mount.
+	 */
 	public static function toggle() {
 		self::guard();
 		$slug = isset( $_GET['slug'] ) ? sanitize_title( wp_unslash( $_GET['slug'] ) ) : '';
@@ -142,13 +220,16 @@ class Stasimo_Admin {
 		if ( ! isset( $all[ $slug ] ) ) {
 			self::back( __( 'Unknown mount.', 'stasimo-static-site-mount' ), 'error' );
 		}
-		$now                    = ! ( isset( $all[ $slug ]['enabled'] ) ? $all[ $slug ]['enabled'] : true );
+		$now                     = ! ( isset( $all[ $slug ]['enabled'] ) ? $all[ $slug ]['enabled'] : true );
 		$all[ $slug ]['enabled'] = $now;
 		Stasimo_Mounts::save_all( $all );
-		$back = isset( $_GET['to'] ) && 'detail' === $_GET['to'] ? array( 'mount' => $slug ) : array();
+		$back = isset( $_GET['to'] ) && 'detail' === sanitize_key( wp_unslash( $_GET['to'] ) ) ? array( 'mount' => $slug ) : array();
 		self::back( $now ? __( 'Mount enabled. Its pages are live again.', 'stasimo-static-site-mount' ) : __( 'Mount disabled. Its URLs now show a normal 404; the files stay on disk.', 'stasimo-static-site-mount' ), 'success', $back );
 	}
 
+	/**
+	 * Handle the remove button of a mount. Its files stay on disk.
+	 */
 	public static function delete() {
 		self::guard();
 		$slug = isset( $_GET['slug'] ) ? sanitize_title( wp_unslash( $_GET['slug'] ) ) : '';
@@ -162,10 +243,16 @@ class Stasimo_Admin {
 
 	/* ------------------------------------------------------------ list view */
 
+	/**
+	 * Mounts screen: the list, the add form or the detail view of one mount.
+	 */
 	public static function page_mounts() {
 		self::guard();
-		$view = isset( $_GET['action'] ) && 'new' === $_GET['action'] ? 'new' : ''; // phpcs:ignore WordPress.Security.NonceVerification
-		$slug = isset( $_GET['mount'] ) ? sanitize_title( wp_unslash( $_GET['mount'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+		// Display-only: picks which screen to show, nothing is saved here (saving goes through check_admin_referer()).
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$view = isset( $_GET['action'] ) && 'new' === sanitize_key( wp_unslash( $_GET['action'] ) ) ? 'new' : '';
+		$slug = isset( $_GET['mount'] ) ? sanitize_title( wp_unslash( $_GET['mount'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		echo '<div class="wrap stasimo-wrap">';
 		self::notice();
 		if ( 'new' === $view ) {
@@ -178,6 +265,9 @@ class Stasimo_Admin {
 		echo '</div>';
 	}
 
+	/**
+	 * Print the list of mounts, or the empty state.
+	 */
 	private static function view_list() {
 		$mounts = Stasimo_Mounts::all();
 		?>
@@ -245,15 +335,32 @@ class Stasimo_Admin {
 	/** The form controls and badges this screen prints itself (values are escaped when built, this is the final filter). */
 	private static function allowed_html() {
 		$field = array(
-			'type' => true, 'class' => true, 'name' => true, 'value' => true, 'id' => true, 'placeholder' => true,
-			'min' => true, 'max' => true, 'step' => true, 'checked' => true, 'readonly' => true, 'disabled' => true, 'rows' => true,
+			'type'        => true,
+			'class'       => true,
+			'name'        => true,
+			'value'       => true,
+			'id'          => true,
+			'placeholder' => true,
+			'min'         => true,
+			'max'         => true,
+			'step'        => true,
+			'checked'     => true,
+			'readonly'    => true,
+			'disabled'    => true,
+			'rows'        => true,
 		);
 		return array(
 			'input'    => $field,
 			'select'   => $field,
-			'option'   => array( 'value' => true, 'selected' => true ),
+			'option'   => array(
+				'value'    => true,
+				'selected' => true,
+			),
 			'textarea' => $field,
-			'label'    => array( 'for' => true, 'class' => true ),
+			'label'    => array(
+				'for'   => true,
+				'class' => true,
+			),
 			'span'     => array( 'class' => true ),
 			'div'      => array( 'class' => true ),
 			'code'     => array(),
@@ -261,6 +368,13 @@ class Stasimo_Admin {
 		);
 	}
 
+	/**
+	 * Print one row of the settings form.
+	 *
+	 * @param string $label Row label.
+	 * @param string $help  Help text below the field.
+	 * @param string $input Markup of the form control, escaped by the caller.
+	 */
 	private static function field_row( $label, $help, $input ) {
 		echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . wp_kses( $input, self::allowed_html() );
 		if ( $help ) {
@@ -269,6 +383,11 @@ class Stasimo_Admin {
 		echo '</td></tr>';
 	}
 
+	/**
+	 * Print the add form (no mount given) or the detail view of a mount.
+	 *
+	 * @param array|null $m Mount, or null for a new one.
+	 */
 	private static function view_form( $m ) {
 		$is_new  = null === $m;
 		$m       = wp_parse_args( $is_new ? array() : $m, Stasimo_Mounts::defaults() );
@@ -372,6 +491,11 @@ class Stasimo_Admin {
 		<?php
 	}
 
+	/**
+	 * Print the status, deploy, pages and remove cards of the detail view.
+	 *
+	 * @param array $m Mount.
+	 */
 	private static function side_cards( array $m ) {
 		$slug = $m['slug'];
 		$idx  = Stasimo_Indexer::get( $slug );
@@ -438,11 +562,21 @@ class Stasimo_Admin {
 
 	/* ------------------------------------------------------------ about view */
 
+	/**
+	 * Print one row of the environment check.
+	 *
+	 * @param string    $label What was checked.
+	 * @param bool|null $ok    True if fine, false if it needs attention, null for information only.
+	 * @param string    $note  Explanation.
+	 */
 	private static function check_row( $label, $ok, $note ) {
 		$badge = true === $ok ? '<span class="stasimo-badge stasimo-badge--on">OK</span>' : ( false === $ok ? '<span class="stasimo-badge stasimo-badge--warn">Check</span>' : '<span class="stasimo-badge stasimo-badge--info">Info</span>' );
 		echo '<tr><td>' . esc_html( $label ) . '</td><td>' . wp_kses( $badge, self::allowed_html() ) . '</td><td>' . esc_html( $note ) . '</td></tr>';
 	}
 
+	/**
+	 * About screen: how it works, environment check and API reference.
+	 */
 	public static function page_about() {
 		self::guard();
 		$base     = Stasimo_Mounts::base_dir();

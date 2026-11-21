@@ -10,10 +10,15 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Prints one static HTML page inside the active theme (block themes), with SEO tags written by the plugin.
+ */
 class Stasimo_Renderer {
 
 	/**
 	 * Header or footer of the active block theme, as HTML. Empty for classic themes.
+	 *
+	 * @param string $slug Template part slug, header or footer.
 	 */
 	public static function template_part( $slug ) {
 		$html = '';
@@ -24,10 +29,12 @@ class Stasimo_Renderer {
 	}
 
 	/**
-	 * @param array  $m        Mount (raw).
-	 * @param string $file     Absolute HTML file.
-	 * @param string $rel_url  URL path relative to the mount, as requested.
-	 * @param int    $status   HTTP status (200 or 404).
+	 * Print one static HTML page inside the active theme.
+	 *
+	 * @param array  $m       Mount (raw).
+	 * @param string $file    Absolute HTML file.
+	 * @param string $rel_url URL path relative to the mount, as requested.
+	 * @param int    $status  HTTP status (200 or 404).
 	 */
 	public static function render( array $m, $file, $rel_url, $status = 200 ) {
 		$cfg   = Stasimo_Mounts::effective( $m );
@@ -46,10 +53,10 @@ class Stasimo_Renderer {
 		if ( '' !== $m['title_suffix'] && false === strpos( $title, $m['title_suffix'] ) ) {
 			$title .= $m['title_suffix'];
 		}
-		$title    = (string) apply_filters( 'stasimo_title', $title, $m, $rel_url );
-		$desc     = (string) apply_filters( 'stasimo_description', $seo['description'], $m, $rel_url );
-		$noindex  = $m['noindex'] || false !== strpos( $seo['robots'], 'noindex' ) || 200 !== $status;
-		$image    = $seo['image'];
+		$title   = (string) apply_filters( 'stasimo_title', $title, $m, $rel_url );
+		$desc    = (string) apply_filters( 'stasimo_description', $seo['description'], $m, $rel_url );
+		$noindex = $m['noindex'] || false !== strpos( $seo['robots'], 'noindex' ) || 200 !== $status;
+		$image   = $seo['image'];
 		if ( '' !== $image && ! preg_match( '#^https?://#i', $image ) ) {
 			$image = 0 === strpos( $image, '/' ) ? home_url( $image ) : Stasimo_Mounts::url( $m, $image );
 		}

@@ -10,11 +10,15 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Small, dependency-free HTML helpers: split a document, read SEO data, rebuild tag attributes, strip nodes.
+ */
 class Stasimo_HTML {
 
 	/**
 	 * Split a full document into its parts.
 	 *
+	 * @param string $html Complete HTML document.
 	 * @return array{html_attrs:string, head:string, body_attrs:string, body:string}
 	 */
 	public static function split( $html ) {
@@ -40,11 +44,17 @@ class Stasimo_HTML {
 		return $out;
 	}
 
+	/**
+	 * Read the attributes of one tag as a name to decoded value map.
+	 *
+	 * @param string $tag Markup of the tag.
+	 * @return array
+	 */
 	public static function attrs( $tag ) {
 		$attrs = array();
 		if ( preg_match_all( '/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'>]+))/', $tag, $mm, PREG_SET_ORDER ) ) {
 			foreach ( $mm as $a ) {
-				$val                         = isset( $a[4] ) && '' !== $a[4] ? $a[4] : ( isset( $a[3] ) && '' !== $a[3] ? $a[3] : $a[2] );
+				$val                          = isset( $a[4] ) && '' !== $a[4] ? $a[4] : ( isset( $a[3] ) && '' !== $a[3] ? $a[3] : $a[2] );
 				$attrs[ strtolower( $a[1] ) ] = html_entity_decode( $val, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 			}
 		}
@@ -85,6 +95,7 @@ class Stasimo_HTML {
 	/**
 	 * Read what search engines care about from a document head.
 	 *
+	 * @param string $head Content of the document head.
 	 * @return array{title:string, description:string, robots:string, image:string, canonical:string}
 	 */
 	public static function seo( $head ) {
@@ -125,6 +136,9 @@ class Stasimo_HTML {
 
 	/**
 	 * Remove head tags that the host page writes itself (SEO, charset, viewport).
+	 *
+	 * @param string $head Content of the document head.
+	 * @return string
 	 */
 	public static function clean_head( $head ) {
 		$head = preg_replace( '/<title[^>]*>.*?<\/title>/is', '', $head );
@@ -153,6 +167,9 @@ class Stasimo_HTML {
 
 	/**
 	 * Convert a simple selector list into XPath. Supported: tag, #id, .class and descendant spaces.
+	 *
+	 * @param string $selectors Comma separated simple selectors.
+	 * @return string
 	 */
 	public static function selector_to_xpath( $selectors ) {
 		$parts = array();
@@ -188,6 +205,10 @@ class Stasimo_HTML {
 
 	/**
 	 * Remove nodes by selector from an HTML fragment (static sites without JavaScript apps).
+	 *
+	 * @param string $fragment  HTML fragment.
+	 * @param string $selectors Comma separated simple selectors.
+	 * @return string
 	 */
 	public static function remove_nodes( $fragment, $selectors ) {
 		$xpath_expr = self::selector_to_xpath( $selectors );
@@ -199,12 +220,14 @@ class Stasimo_HTML {
 		$dom->loadHTML( '<?xml encoding="UTF-8"><div id="stasimo-root">' . $fragment . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
 		libxml_clear_errors();
 		libxml_use_internal_errors( $prev );
+		// The DOM extension's own property names (parentNode, childNodes) are camelCase and cannot be renamed.
+		// phpcs:disable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		$xp    = new DOMXPath( $dom );
 		$nodes = $xp->query( $xpath_expr );
 		if ( $nodes ) {
 			foreach ( iterator_to_array( $nodes ) as $node ) {
-				if ( $node->parentNode ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName
-					$node->parentNode->removeChild( $node ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName
+				if ( $node->parentNode ) {
+					$node->parentNode->removeChild( $node );
 				}
 			}
 		}
@@ -213,9 +236,10 @@ class Stasimo_HTML {
 			return $fragment;
 		}
 		$out = '';
-		foreach ( $root->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName
+		foreach ( $root->childNodes as $child ) {
 			$out .= $dom->saveHTML( $child );
 		}
+		// phpcs:enable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		return $out;
 	}
 }

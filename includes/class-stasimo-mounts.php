@@ -7,16 +7,40 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Mount configuration: storage, sanitizing, presets and paths.
+ */
 class Stasimo_Mounts {
 
 	const OPTION = 'stasimo_mounts';
 
 	/** Prefixes that must never be mounted. */
 	const RESERVED = array(
-		'wp-admin', 'wp-content', 'wp-includes', 'wp-json', 'wp-login.php', 'wp-cron.php', 'wp-signup.php', 'wp-activate.php',
-		'wp-comments-post.php', 'wp-trackback.php', 'wp-links-opml.php', 'wp-register.php', 'wp-mail.php', 'wp-load.php',
-		'wp-sitemap.xml', 'sitemap.xml', 'sitemap_index.xml', 'robots.txt', 'favicon.ico', 'stasimo-pages.xml', 'index.php',
-		'feed', 'comments', 'embed', 'xmlrpc.php',
+		'wp-admin',
+		'wp-content',
+		'wp-includes',
+		'wp-json',
+		'wp-login.php',
+		'wp-cron.php',
+		'wp-signup.php',
+		'wp-activate.php',
+		'wp-comments-post.php',
+		'wp-trackback.php',
+		'wp-links-opml.php',
+		'wp-register.php',
+		'wp-mail.php',
+		'wp-load.php',
+		'wp-sitemap.xml',
+		'sitemap.xml',
+		'sitemap_index.xml',
+		'robots.txt',
+		'favicon.ico',
+		'stasimo-pages.xml',
+		'index.php',
+		'feed',
+		'comments',
+		'embed',
+		'xmlrpc.php',
 	);
 
 	/**
@@ -29,6 +53,9 @@ class Stasimo_Mounts {
 
 	/**
 	 * Why a mount cannot use this prefix: another mount (same or nested prefix) or a WordPress page. Empty string if free.
+	 *
+	 * @param array $m Mount to check.
+	 * @return string
 	 */
 	public static function conflict( array $m ) {
 		foreach ( self::all() as $slug => $other ) {
@@ -52,16 +79,18 @@ class Stasimo_Mounts {
 	/**
 	 * Presets describe how a given generator's output is wrapped.
 	 *
-	 * hide   CSS selectors hidden (keeps JS apps like Docusaurus working, because the DOM is untouched).
-	 * remove selectors removed from the HTML on the server (for plain static sites without JS).
-	 * theme_key localStorage key the generator uses for light/dark, so both sides agree.
-	 * css    extra CSS; {offset} is replaced by the header offset in px.
+	 * Every preset has these keys. The hide key lists CSS selectors that are hidden, which keeps JS apps like Docusaurus
+	 * working because the DOM is untouched. The remove key lists selectors that are removed from the HTML on the server
+	 * (for plain static sites without JS). The theme_key is the localStorage key the generator uses for light and dark,
+	 * so both sides agree. The css key holds extra CSS, where {offset} is replaced by the header offset in px.
+	 *
+	 * @return array[]
 	 */
 	public static function presets() {
 		return apply_filters(
 			'stasimo_presets',
 			array(
-				'docusaurus' => array(
+				'docusaurus'      => array(
 					'label'     => 'Docusaurus',
 					'hide'      => 'nav.navbar, footer.footer',
 					'remove'    => '',
@@ -81,7 +110,7 @@ class Stasimo_Mounts {
 						'light' => 'default',
 					),
 				),
-				'generic'    => array(
+				'generic'         => array(
 					'label'     => 'Generic static site (plain HTML)',
 					'hide'      => '',
 					'remove'    => '',
@@ -92,23 +121,33 @@ class Stasimo_Mounts {
 		);
 	}
 
+	/**
+	 * Default values of a mount.
+	 *
+	 * @return array
+	 */
 	public static function defaults() {
 		return array(
-			'slug'          => '',
-			'enabled'       => true,
-			'prefix'        => '',
-			'dir'           => '',
-			'preset'        => 'docusaurus',
-			'hide'          => '',
-			'remove'        => '',
-			'title_suffix'  => '',
-			'sitemap'       => true,
-			'noindex'       => false,
-			'header_offset' => 0,
+			'slug'           => '',
+			'enabled'        => true,
+			'prefix'         => '',
+			'dir'            => '',
+			'preset'         => 'docusaurus',
+			'hide'           => '',
+			'remove'         => '',
+			'title_suffix'   => '',
+			'sitemap'        => true,
+			'noindex'        => false,
+			'header_offset'  => 0,
 			'host_theme_key' => '',
 		);
 	}
 
+	/**
+	 * All stored mounts, including disabled ones.
+	 *
+	 * @return array
+	 */
 	public static function all() {
 		$mounts = get_option( self::OPTION, array() );
 		return is_array( $mounts ) ? $mounts : array();
@@ -126,16 +165,32 @@ class Stasimo_Mounts {
 		return $out;
 	}
 
+	/**
+	 * One mount with defaults filled in.
+	 *
+	 * @param string $slug Mount name.
+	 * @return array|null
+	 */
 	public static function get( $slug ) {
 		$all = self::all();
 		return isset( $all[ $slug ] ) ? wp_parse_args( $all[ $slug ], self::defaults() ) : null;
 	}
 
+	/**
+	 * Store all mounts and schedule a rewrite rules flush.
+	 *
+	 * @param array $mounts All mounts, keyed by name.
+	 */
 	public static function save_all( array $mounts ) {
 		update_option( self::OPTION, $mounts, false );
 		update_option( 'stasimo_rules_hash', '', false ); // force a rewrite flush on the next request.
 	}
 
+	/**
+	 * Fingerprint of everything the rewrite rules depend on.
+	 *
+	 * @return string
+	 */
 	public static function rules_hash() {
 		$parts = array();
 		foreach ( self::all() as $slug => $m ) {
@@ -146,17 +201,19 @@ class Stasimo_Mounts {
 
 	/**
 	 * Sanitize one mount from untrusted input. Returns array or WP_Error.
+	 *
+	 * @param array $raw Untrusted mount data.
 	 */
 	public static function sanitize( array $raw ) {
-		$m          = wp_parse_args( $raw, self::defaults() );
-		$m['slug']  = sanitize_title( $m['slug'] );
+		$m         = wp_parse_args( $raw, self::defaults() );
+		$m['slug'] = sanitize_title( $m['slug'] );
 		if ( false !== strpos( (string) $m['prefix'], '..' ) ) {
 			return new WP_Error( 'stasimo_prefix', __( 'The URL prefix must not contain "..".', 'stasimo-static-site-mount' ) );
 		}
-		$prefix     = strtolower( trim( (string) $m['prefix'], " \t\n\r\0\x0B/" ) );
-		$prefix     = preg_replace( '#[^a-z0-9/_-]#', '', $prefix );
-		$prefix     = preg_replace( '#/+#', '/', $prefix );
-		$prefix     = trim( $prefix, '/' );
+		$prefix = strtolower( trim( (string) $m['prefix'], " \t\n\r\0\x0B/" ) );
+		$prefix = preg_replace( '#[^a-z0-9/_-]#', '', $prefix );
+		$prefix = preg_replace( '#/+#', '/', $prefix );
+		$prefix = trim( $prefix, '/' );
 
 		if ( '' === $m['slug'] ) {
 			return new WP_Error( 'stasimo_slug', __( 'A short name (slug) is required.', 'stasimo-static-site-mount' ) );
@@ -183,19 +240,25 @@ class Stasimo_Mounts {
 		}
 		$m['dir'] = $dir;
 
-		$presets      = self::presets();
-		$m['preset']  = isset( $presets[ $m['preset'] ] ) ? $m['preset'] : 'generic';
-		$m['hide']    = self::clean_selectors( $m['hide'] );
-		$m['remove']  = self::clean_selectors( $m['remove'] );
-		$m['title_suffix'] = sanitize_text_field( $m['title_suffix'] );
-		$m['enabled'] = ! isset( $raw['enabled'] ) || filter_var( $raw['enabled'], FILTER_VALIDATE_BOOLEAN );
-		$m['sitemap'] = ! empty( $m['sitemap'] );
-		$m['noindex'] = ! empty( $m['noindex'] );
-		$m['header_offset'] = max( 0, min( 400, (int) $m['header_offset'] ) );
+		$presets             = self::presets();
+		$m['preset']         = isset( $presets[ $m['preset'] ] ) ? $m['preset'] : 'generic';
+		$m['hide']           = self::clean_selectors( $m['hide'] );
+		$m['remove']         = self::clean_selectors( $m['remove'] );
+		$m['title_suffix']   = sanitize_text_field( $m['title_suffix'] );
+		$m['enabled']        = ! isset( $raw['enabled'] ) || filter_var( $raw['enabled'], FILTER_VALIDATE_BOOLEAN );
+		$m['sitemap']        = ! empty( $m['sitemap'] );
+		$m['noindex']        = ! empty( $m['noindex'] );
+		$m['header_offset']  = max( 0, min( 400, (int) $m['header_offset'] ) );
 		$m['host_theme_key'] = preg_replace( '/[^A-Za-z0-9_.:-]/', '', (string) $m['host_theme_key'] );
 		return $m;
 	}
 
+	/**
+	 * Reduce a selector list to characters that are safe inside a stylesheet.
+	 *
+	 * @param string $value Comma separated selectors.
+	 * @return string
+	 */
 	public static function clean_selectors( $value ) {
 		$value = str_replace( array( '</', '/*', '*/' ), '', (string) $value );
 		$value = preg_replace( '/[^\w\s,.#:>\-\[\]="\'*+~()]/u', '', $value );
@@ -204,11 +267,13 @@ class Stasimo_Mounts {
 
 	/**
 	 * Effective config: preset defaults plus the user's additions.
+	 *
+	 * @param array $m Mount.
 	 */
 	public static function effective( array $m ) {
-		$presets = self::presets();
-		$p       = isset( $presets[ $m['preset'] ] ) ? $presets[ $m['preset'] ] : $presets['generic'];
-		$join    = function ( $a, $b ) {
+		$presets         = self::presets();
+		$p               = isset( $presets[ $m['preset'] ] ) ? $presets[ $m['preset'] ] : $presets['generic'];
+		$join            = function ( $a, $b ) {
 			return trim( implode( ', ', array_filter( array( trim( $a ), trim( $b ) ) ) ) );
 		};
 		$m['hide_all']   = $join( $p['hide'], $m['hide'] );
@@ -236,6 +301,8 @@ class Stasimo_Mounts {
 
 	/**
 	 * Absolute folder of a mount's files.
+	 *
+	 * @param array $m Mount.
 	 */
 	public static function dir( array $m ) {
 		$dir = isset( $m['dir'] ) ? trim( $m['dir'] ) : '';
@@ -252,6 +319,13 @@ class Stasimo_Mounts {
 		return self::base_dir() . '/' . trim( $dir, '/' );
 	}
 
+	/**
+	 * Public URL of a mount, or of a path inside it.
+	 *
+	 * @param array  $m    Mount.
+	 * @param string $path Path inside the mount.
+	 * @return string
+	 */
 	public static function url( array $m, $path = '' ) {
 		return home_url( '/' . $m['prefix'] . '/' . ltrim( $path, '/' ) );
 	}

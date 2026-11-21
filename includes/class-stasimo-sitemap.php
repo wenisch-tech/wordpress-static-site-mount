@@ -7,18 +7,34 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * XML sitemap of the mounted pages, announced to Yoast's index and robots.txt.
+ */
 class Stasimo_Sitemap {
 
+	/**
+	 * Register the sitemap handlers.
+	 */
 	public static function init() {
 		add_action( 'template_redirect', array( __CLASS__, 'serve' ), 0 );
 		add_filter( 'wpseo_sitemap_index', array( __CLASS__, 'yoast_index' ) );
 		add_filter( 'robots_txt', array( __CLASS__, 'robots' ), 20 );
 	}
 
+	/**
+	 * URL of the sitemap.
+	 *
+	 * @return string
+	 */
 	public static function url() {
 		return home_url( '/stasimo-pages.xml' );
 	}
 
+	/**
+	 * Whether any mount contributes pages to the sitemap.
+	 *
+	 * @return bool
+	 */
 	private static function has_pages() {
 		foreach ( Stasimo_Mounts::active() as $slug => $m ) {
 			$m = wp_parse_args( $m, Stasimo_Mounts::defaults() );
@@ -29,6 +45,11 @@ class Stasimo_Sitemap {
 		return false;
 	}
 
+	/**
+	 * Most recent modification time of all mounted pages, as an ISO 8601 date.
+	 *
+	 * @return string
+	 */
 	private static function lastmod() {
 		$max = 0;
 		foreach ( Stasimo_Mounts::active() as $slug => $m ) {
@@ -39,6 +60,12 @@ class Stasimo_Sitemap {
 		return $max ? gmdate( 'c', $max ) : '';
 	}
 
+	/**
+	 * Add the sitemap to Yoast SEO's sitemap index.
+	 *
+	 * @param string $xml Index markup so far.
+	 * @return string
+	 */
 	public static function yoast_index( $xml ) {
 		if ( ! self::has_pages() ) {
 			return $xml;
@@ -47,6 +74,12 @@ class Stasimo_Sitemap {
 		return $xml . '<sitemap><loc>' . esc_url( self::url() ) . '</loc>' . ( $lm ? '<lastmod>' . $lm . '</lastmod>' : '' ) . '</sitemap>' . "\n";
 	}
 
+	/**
+	 * Announce the sitemap in robots.txt.
+	 *
+	 * @param string $output robots.txt content so far.
+	 * @return string
+	 */
 	public static function robots( $output ) {
 		if ( self::has_pages() && false === strpos( $output, 'stasimo-pages.xml' ) ) {
 			$output .= "\nSitemap: " . self::url() . "\n";
@@ -54,6 +87,9 @@ class Stasimo_Sitemap {
 		return $output;
 	}
 
+	/**
+	 * Print the sitemap when it is requested.
+	 */
 	public static function serve() {
 		if ( ! get_query_var( 'stasimo_sitemap' ) ) {
 			return;

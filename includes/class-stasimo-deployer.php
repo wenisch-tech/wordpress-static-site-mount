@@ -7,21 +7,39 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Replaces a mount's folder with the contents of a zip file or a folder, atomically, then re-indexes.
+ */
 class Stasimo_Deployer {
 
 	const MAX_FILES = 50000;
 	const MAX_BYTES = 536870912; // 512 MB unpacked.
 
+	/**
+	 * Delete a folder with everything in it.
+	 *
+	 * @param string $dir Absolute folder path.
+	 */
 	private static function rrmdir( $dir ) {
 		Stasimo_Files::remove_dir( $dir );
 	}
 
-	/** Executable-looking names are refused even with an allowed last extension (shell.php.png, x.phtml.css ...). */
+	/**
+	 * Executable-looking names are refused even with an allowed last extension (shell.php.png, x.phtml.css ...).
+	 *
+	 * @param string $name File name or path from an archive.
+	 * @return bool
+	 */
 	private static function is_dangerous_name( $name ) {
 		return (bool) preg_match( '/\.(php[0-9]*|phtml|pht|phar|cgi|pl|py|rb|sh|asp|aspx|jsp|htaccess)(\.|$)/i', basename( $name ) );
 	}
 
-	/** The mount folder must sit inside the base folder: a deploy renames and deletes it. */
+	/**
+	 * The mount folder must sit inside the base folder: a deploy renames and deletes it.
+	 *
+	 * @param string $dir Absolute mount folder.
+	 * @return bool
+	 */
 	private static function dir_is_safe( $dir ) {
 		if ( apply_filters( 'stasimo_allow_external_dirs', false ) ) {
 			return '' !== $dir && '/' !== $dir;
@@ -32,6 +50,9 @@ class Stasimo_Deployer {
 
 	/**
 	 * Normalize a path from an archive. Returns null for entries that must be skipped, WP_Error for hostile ones.
+	 *
+	 * @param string $name Path of an entry in the archive.
+	 * @return string|WP_Error
 	 */
 	private static function safe_name( $name ) {
 		if ( false !== strpos( $name, "\0" ) || false !== strpos( $name, '\\' ) || preg_match( '#^([A-Za-z]:|/)#', $name ) ) {
@@ -48,6 +69,8 @@ class Stasimo_Deployer {
 	/**
 	 * Deploy a zip file into a mount.
 	 *
+	 * @param array  $m        Mount.
+	 * @param string $zip_path Absolute path of the zip file.
 	 * @return array|WP_Error
 	 */
 	public static function deploy_zip( array $m, $zip_path ) {
@@ -62,7 +85,8 @@ class Stasimo_Deployer {
 		$types   = Stasimo_Server::mime_types();
 		$entries = array();
 		$total   = 0;
-		for ( $i = 0; $i < $zip->numFiles; $i++ ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName
+		$count   = $zip->count();
+		for ( $i = 0; $i < $count; $i++ ) {
 			$st   = $zip->statIndex( $i );
 			$name = self::safe_name( $st['name'] );
 			if ( is_wp_error( $name ) ) {
@@ -162,6 +186,9 @@ class Stasimo_Deployer {
 
 	/**
 	 * Deploy from a folder on the same server (used by WP-CLI).
+	 *
+	 * @param array  $m   Mount.
+	 * @param string $src Absolute path of the source folder.
 	 */
 	public static function deploy_dir( array $m, $src ) {
 		$src = realpath( $src );
@@ -192,13 +219,20 @@ class Stasimo_Deployer {
 			}
 			wp_mkdir_p( dirname( $tmp . '/' . $rel ) );
 			Stasimo_Files::fs()->copy( $f->getPathname(), $tmp . '/' . $rel, true );
-			$written++;
+			++$written;
 		}
 		return self::swap( $m, $dir, $tmp, $old, $written, $tmp );
 	}
 
 	/**
 	 * Put a finished build in place. $src is the folder with index.html, $work the temporary folder that contains it (deleted afterwards).
+	 *
+	 * @param array  $m       Mount.
+	 * @param string $dir     Final mount folder.
+	 * @param string $src     Folder that holds the new build (with index.html).
+	 * @param string $old     Where the previous build is moved to.
+	 * @param int    $written Number of files in the new build.
+	 * @param string $work    Temporary folder that contains $src, deleted afterwards.
 	 */
 	private static function swap( array $m, $dir, $src, $old, $written, $work ) {
 		$fs = Stasimo_Files::fs();
