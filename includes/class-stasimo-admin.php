@@ -187,7 +187,12 @@ class Stasimo_Admin {
 		$all[ $m['slug'] ] = $m;
 		Stasimo_Mounts::save_all( $all );
 		Stasimo_Mounts::prepare_base_dir();
-		self::back( '' === $original ? __( 'Mount created. Upload the build next (see Deploy below).', 'stasimo-static-site-mount' ) : __( 'Saved.', 'stasimo-static-site-mount' ), 'success', array( 'mount' => $m['slug'] ) );
+		$presets = Stasimo_Mounts::presets();
+		$message = '' === $original ? __( 'Mount created. Upload the build next (see Deploy below).', 'stasimo-static-site-mount' ) : __( 'Saved.', 'stasimo-static-site-mount' );
+		if ( ! $m['trusted'] && ! empty( $presets[ $m['preset'] ]['scripts'] ) ) {
+			$message .= ' ' . __( 'This type needs its own JavaScript for search and menus: set Page content to Trusted if you want that.', 'stasimo-static-site-mount' );
+		}
+		self::back( $message, 'success', array( 'mount' => $m['slug'] ) );
 	}
 
 	/**
@@ -433,6 +438,14 @@ class Stasimo_Admin {
 							$opts .= '<option value="' . esc_attr( $key ) . '" ' . selected( $m['preset'], $key, false ) . '>' . esc_html( $p['label'] ) . '</option>';
 						}
 						self::field_row( __( 'Type', 'stasimo-static-site-mount' ), __( 'Which generator built the site. It decides which parts (navbar, footer) are replaced by your theme.', 'stasimo-static-site-mount' ), '<select name="' . esc_attr( $n ) . '[preset]">' . $opts . '</select>' );
+						$trusted_select = '<select name="' . esc_attr( $n ) . '[trusted]">'
+							. '<option value="0" ' . selected( $m['trusted'], false, false ) . '>' . esc_html__( 'Filtered (recommended)', 'stasimo-static-site-mount' ) . '</option>'
+							. '<option value="1" ' . selected( $m['trusted'], true, false ) . '>' . esc_html__( 'Trusted', 'stasimo-static-site-mount' ) . '</option></select>';
+						self::field_row(
+							__( 'Page content', 'stasimo-static-site-mount' ),
+							__( 'Filtered removes scripts, forms, frames and event handlers from the pages and shows what is left inside your theme. Trusted runs the site\'s own JavaScript and prints its markup as it is, which Docusaurus, MkDocs and similar generators need. Only choose Trusted for sites you built yourself.', 'stasimo-static-site-mount' ),
+							$trusted_select
+						);
 						self::field_row(
 							__( 'Folder', 'stasimo-static-site-mount' ),
 							sprintf( /* translators: %s default folder */ __( 'Optional. Empty means %s', 'stasimo-static-site-mount' ), Stasimo_Mounts::base_dir() . '/' . ( $slug ? $slug : '<name>' ) ),
@@ -510,6 +523,7 @@ class Stasimo_Admin {
 					<dt><?php esc_html_e( 'Pages', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo esc_html( (string) count( $idx['pages'] ) ); ?></dd>
 					<dt><?php esc_html_e( 'Last indexed', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo $idx['time'] ? esc_html( human_time_diff( $idx['time'] ) . ' ' . __( 'ago', 'stasimo-static-site-mount' ) ) : '&ndash;'; ?></dd>
 					<dt><?php esc_html_e( 'Folder', 'stasimo-static-site-mount' ); ?></dt><dd><code><?php echo esc_html( $dir ); ?></code><?php echo is_dir( $dir ) ? '' : ' <span class="stasimo-badge stasimo-badge--warn">' . esc_html__( 'missing', 'stasimo-static-site-mount' ) . '</span>'; ?></dd>
+					<dt><?php esc_html_e( 'Page content', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo $m['trusted'] ? esc_html__( 'Trusted', 'stasimo-static-site-mount' ) : esc_html__( 'Filtered', 'stasimo-static-site-mount' ); ?></dd>
 					<dt><?php esc_html_e( 'Sitemap', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo $m['sitemap'] && ! $m['noindex'] ? esc_html__( 'included', 'stasimo-static-site-mount' ) : esc_html__( 'not included', 'stasimo-static-site-mount' ); ?></dd>
 				</dl>
 				<div class="stasimo-buttons">

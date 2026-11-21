@@ -44,7 +44,7 @@ class Stasimo_CLI {
 	 * : URL prefix, e.g. docs/my-project
 	 *
 	 * [--preset=<preset>]
-	 * : docusaurus or generic.
+	 * : docusaurus, mkdocs-material or generic.
 	 *
 	 * [--dir=<dir>]
 	 * : Folder name inside the stasimo base folder in the uploads directory (absolute paths need the stasimo_allow_external_dirs filter).
@@ -54,6 +54,9 @@ class Stasimo_CLI {
 	 *
 	 * [--host-theme-key=<key>]
 	 * : localStorage key of the host theme's light/dark choice.
+	 *
+	 * [--trusted]
+	 * : Run the site's own JavaScript and print its markup as it is (needed for Docusaurus, MkDocs). Without it the pages are filtered.
 	 *
 	 * @param array $args  Positional arguments: the mount name.
 	 * @param array $assoc Named options.
@@ -66,6 +69,7 @@ class Stasimo_CLI {
 			'dir'            => isset( $assoc['dir'] ) ? $assoc['dir'] : '',
 			'header_offset'  => isset( $assoc['header-offset'] ) ? $assoc['header-offset'] : 0,
 			'host_theme_key' => isset( $assoc['host-theme-key'] ) ? $assoc['host-theme-key'] : '',
+			'trusted'        => ! empty( $assoc['trusted'] ),
 		);
 		$m   = Stasimo_Mounts::sanitize( $raw );
 		if ( is_wp_error( $m ) ) {

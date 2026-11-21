@@ -49,6 +49,7 @@ class Stasimo_Rest {
 							'url'     => Stasimo_Mounts::url( $m ),
 							'preset'  => $m['preset'],
 							'enabled' => (bool) $m['enabled'],
+							'trusted' => (bool) $m['trusted'],
 							'pages'   => count( $idx['pages'] ),
 							'indexed' => $idx['time'] ? gmdate( 'c', $idx['time'] ) : null,
 						);
@@ -70,6 +71,9 @@ class Stasimo_Rest {
 					$existing    = Stasimo_Mounts::get( $req['slug'] );
 					if ( $existing && ! isset( $raw['enabled'] ) ) {
 						$raw['enabled'] = $existing['enabled'];
+					}
+					if ( $existing && ! isset( $raw['trusted'] ) ) {
+						$raw['trusted'] = $existing['trusted'];
 					}
 					$m           = Stasimo_Mounts::sanitize( $raw );
 					if ( is_wp_error( $m ) ) {

@@ -42,8 +42,10 @@ class Stasimo_Renderer {
 		$parts = Stasimo_HTML::split( $html );
 		$seo   = Stasimo_HTML::seo( $parts['head'] );
 
-		$head = Stasimo_HTML::clean_head( $parts['head'] );
-		$body = $parts['body'];
+		// A trusted mount runs the site's own JavaScript and prints its markup as it is. Any other mount is filtered.
+		$trusted = ! empty( $m['trusted'] );
+		$head    = Stasimo_HTML::clean_head( $parts['head'] );
+		$body    = $parts['body'];
 		if ( '' !== $cfg['remove_all'] ) {
 			$body = Stasimo_HTML::remove_nodes( $body, $cfg['remove_all'] );
 		}
@@ -60,22 +62,6 @@ class Stasimo_Renderer {
 		if ( '' !== $image && ! preg_match( '#^https?://#i', $image ) ) {
 			$image = 0 === strpos( $image, '/' ) ? home_url( $image ) : Stasimo_Mounts::url( $m, $image );
 		}
-
-		$seo_tags  = '<title>' . esc_html( $title ) . "</title>\n";
-		$seo_tags .= '' !== $desc ? '<meta name="description" content="' . esc_attr( $desc ) . "\">\n" : '';
-		if ( 200 === $status ) {
-			$seo_tags .= '<link rel="canonical" href="' . esc_url( $canonical ) . "\">\n";
-		}
-		if ( $noindex ) {
-			$seo_tags .= "<meta name=\"robots\" content=\"noindex, follow\">\n";
-		}
-		$seo_tags .= '<meta property="og:type" content="article">' . "\n";
-		$seo_tags .= '<meta property="og:site_name" content="' . esc_attr( get_bloginfo( 'name' ) ) . "\">\n";
-		$seo_tags .= '<meta property="og:title" content="' . esc_attr( $title ) . "\">\n";
-		$seo_tags .= '' !== $desc ? '<meta property="og:description" content="' . esc_attr( $desc ) . "\">\n" : '';
-		$seo_tags .= '<meta property="og:url" content="' . esc_url( $canonical ) . "\">\n";
-		$seo_tags .= '' !== $image ? '<meta property="og:image" content="' . esc_url( $image ) . "\">\n" : '';
-		$seo_tags .= '<meta name="twitter:card" content="' . ( '' !== $image ? 'summary_large_image' : 'summary' ) . "\">\n";
 
 		// Light/dark: make the generator follow the host theme's choice (printed with wp_print_inline_script_tag()).
 		$bridge_js = '';
@@ -113,6 +99,11 @@ class Stasimo_Renderer {
 			wp_add_inline_style( 'stasimo-wrap', $css );
 		}
 
+		if ( ! $trusted ) {
+			// Filtered: the page's stylesheets and inline styles go through the style API, its scripts are not used at all.
+			Stasimo_HTML::enqueue_head_assets( $parts['head'] . "\n" . $parts['body'], $canonical );
+		}
+
 		// Theme parts are rendered first so their styles are queued before wp_head().
 		$header = self::template_part( 'header' );
 		$footer = self::template_part( 'footer' );
@@ -124,38 +115,98 @@ class Stasimo_Renderer {
 		add_filter( 'wpseo_frontend_presenters', '__return_empty_array', 99 );
 		add_filter( 'rank_math/frontend/disable_integration', '__return_true' );
 
-		// The attributes of the uploaded <html> and <body> tags are rebuilt and escaped (Stasimo_HTML::safe_attrs).
-		$html_attrs = '' !== $parts['html_attrs'] ? Stasimo_HTML::safe_attrs( $parts['html_attrs'] ) : get_language_attributes();
-		$body_attrs = Stasimo_HTML::safe_attrs( $parts['body_attrs'], 'stasimo-page' );
-
 		status_header( $status );
 		header( 'Content-Type: text/html; charset=UTF-8' );
 		if ( $noindex ) {
 			header( 'X-Robots-Tag: noindex, follow' );
 		}
 
-		/*
-		 * The next echo calls print stored HTML on purpose and cannot be escaped: the product of this plugin is serving the
-		 * uploaded static site as it is (its <head>, <body> and attributes), inside the theme. That content is trusted because only users
-		 * with manage_options and unfiltered_html can deploy it (see Stasimo_Mounts::can_manage()). Everything the plugin builds
-		 * itself ($seo_tags, scripts, styles) is escaped above or printed through core functions.
-		 */
-		echo "<!DOCTYPE html>\n<html " . $html_attrs . ">\n<head>\n<meta charset=\"utf-8\">\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- attributes rebuilt with esc_attr() in Stasimo_HTML::safe_attrs().
-		echo $seo_tags; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_html()/esc_attr()/esc_url() above.
+		echo "<!DOCTYPE html>\n<html ";
+		if ( '' !== $parts['html_attrs'] ) {
+			// The attributes of the uploaded <html> tag are rebuilt and escaped while they are printed.
+			Stasimo_HTML::print_attrs( $parts['html_attrs'], '', ! $trusted );
+		} else {
+			language_attributes();
+		}
+		echo ">\n<head>\n<meta charset=\"utf-8\">\n";
+		self::print_seo( $title, $desc, $canonical, $noindex, $image, $status );
 		if ( '' !== $bridge_js ) {
 			wp_print_inline_script_tag( $bridge_js );
 		}
 		wp_head();
-		echo $head . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the uploaded site's own <head> content.
-		echo "</head>\n<body " . $body_attrs . ">\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- attributes rebuilt with esc_attr() in Stasimo_HTML::safe_attrs().
+		if ( $trusted ) {
+			// Trusted mount: its own head (scripts, styles, links) is printed as it is. See the note in print_content().
+			echo $head . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted mount, deployed by a user with unfiltered_html.
+		}
+		echo "</head>\n<body ";
+		Stasimo_HTML::print_attrs( $parts['body_attrs'], 'stasimo-page', ! $trusted );
+		echo ">\n";
 		wp_body_open();
 		if ( '' !== $body_bridge_js ) {
 			wp_print_inline_script_tag( $body_bridge_js );
 		}
-		echo '<div class="stasimo-host stasimo-host-header">' . $header . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- rendered by core (do_blocks) from the theme's template part.
-		echo '<div class="stasimo-content">' . $body . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the uploaded site's own <body>.
-		echo '<div class="stasimo-host stasimo-host-footer">' . $footer . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- rendered by core (do_blocks) from the theme's template part.
+		echo '<div class="stasimo-host stasimo-host-header">' . $header . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- rendered by core (do_blocks) from the theme's own template part.
+		echo '<div class="stasimo-content">';
+		self::print_content( $body, $trusted );
+		echo "</div>\n";
+		echo '<div class="stasimo-host stasimo-host-footer">' . $footer . "</div>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- rendered by core (do_blocks) from the theme's own template part.
 		wp_footer();
 		echo "\n</body>\n</html>\n";
+	}
+
+	/**
+	 * Print the body of the uploaded page.
+	 *
+	 * A filtered mount passes it through wp_kses(): scripts, styles, forms, frames and event handlers are removed. A trusted
+	 * mount prints it as it is, because its purpose is to run a generated site such as Docusaurus or MkDocs. Only a user
+	 * with manage_options and unfiltered_html can deploy to, or switch on, a trusted mount (see Stasimo_Mounts::can_manage()),
+	 * the same trust WordPress gives to post content written by such a user.
+	 *
+	 * @param string $body    Body markup of the uploaded page.
+	 * @param bool   $trusted Whether the mount is trusted.
+	 */
+	private static function print_content( $body, $trusted ) {
+		if ( $trusted ) {
+			echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted mount, deployed by a user with unfiltered_html.
+		} else {
+			// wp_kses() removes the tags of a script but would leave its text behind, so those blocks are dropped first.
+			// Styles and stylesheet links of the page were already queued through the style API.
+			$body = preg_replace( '#<(script|style|template|noscript|object|embed)\b[^>]*>.*?</\1\s*>#is', '', $body );
+			echo wp_kses( (string) $body, Stasimo_HTML::filtered_tags() );
+		}
+	}
+
+	/**
+	 * Print the title, description, canonical, robots, Open Graph and Twitter tags of a page, each escaped as it is printed.
+	 *
+	 * @param string $title     Page title.
+	 * @param string $desc      Meta description.
+	 * @param string $canonical Canonical URL.
+	 * @param bool   $noindex   Whether search engines are asked to skip the page.
+	 * @param string $image     Social image URL, or an empty string.
+	 * @param int    $status    HTTP status of the response.
+	 */
+	private static function print_seo( $title, $desc, $canonical, $noindex, $image, $status ) {
+		echo '<title>' . esc_html( $title ) . "</title>\n";
+		if ( '' !== $desc ) {
+			echo '<meta name="description" content="' . esc_attr( $desc ) . "\">\n";
+		}
+		if ( 200 === $status ) {
+			echo '<link rel="canonical" href="' . esc_url( $canonical ) . "\">\n";
+		}
+		if ( $noindex ) {
+			echo "<meta name=\"robots\" content=\"noindex, follow\">\n";
+		}
+		echo '<meta property="og:type" content="article">' . "\n";
+		echo '<meta property="og:site_name" content="' . esc_attr( get_bloginfo( 'name' ) ) . "\">\n";
+		echo '<meta property="og:title" content="' . esc_attr( $title ) . "\">\n";
+		if ( '' !== $desc ) {
+			echo '<meta property="og:description" content="' . esc_attr( $desc ) . "\">\n";
+		}
+		echo '<meta property="og:url" content="' . esc_url( $canonical ) . "\">\n";
+		if ( '' !== $image ) {
+			echo '<meta property="og:image" content="' . esc_url( $image ) . "\">\n";
+		}
+		echo '<meta name="twitter:card" content="' . ( '' !== $image ? 'summary_large_image' : 'summary' ) . "\">\n";
 	}
 }

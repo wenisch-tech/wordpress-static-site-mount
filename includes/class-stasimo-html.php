@@ -62,13 +62,14 @@ class Stasimo_HTML {
 	}
 
 	/**
-	 * Rebuild a tag's attribute string from scratch: every name is checked and every value goes through esc_attr(), so what is
-	 * printed for <html> and <body> is escaped even though the file it came from is not.
+	 * Print the attributes of a tag, rebuilt from scratch: every name and value goes through esc_attr() as it is printed,
+	 * so what comes out for <html> and <body> is escaped even though the file it came from is not.
 	 *
 	 * @param string $raw       Attribute text from the original tag.
 	 * @param string $add_class Optional class to add.
+	 * @param bool   $filtered  True in a filtered mount: event handler attributes (onload and the like) are dropped.
 	 */
-	public static function safe_attrs( $raw, $add_class = '' ) {
+	public static function print_attrs( $raw, $add_class = '', $filtered = false ) {
 		$attrs = array();
 		if ( preg_match_all( '/([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'>=`]+)))?/', (string) $raw, $mm, PREG_SET_ORDER ) ) {
 			foreach ( $mm as $a ) {
@@ -85,11 +86,178 @@ class Stasimo_HTML {
 		if ( '' !== $add_class ) {
 			$attrs['class'] = trim( ( isset( $attrs['class'] ) ? $attrs['class'] . ' ' : '' ) . $add_class );
 		}
-		$out = array();
+		$first = true;
 		foreach ( $attrs as $name => $val ) {
-			$out[] = '' === $val && 'class' !== $name && ! preg_match( '/^(lang|dir|id|style|data-|aria-)/i', $name ) ? $name : $name . '="' . esc_attr( $val ) . '"';
+			if ( $filtered && 0 === stripos( $name, 'on' ) ) {
+				continue;
+			}
+			echo $first ? '' : ' ';
+			echo esc_attr( $name );
+			if ( '' !== $val || 'class' === $name || preg_match( '/^(lang|dir|id|style|data-|aria-)/i', $name ) ) {
+				echo '="' . esc_attr( $val ) . '"';
+			}
+			$first = false;
 		}
-		return implode( ' ', $out );
+	}
+
+	/**
+	 * The HTML a filtered mount may contain: everything WordPress allows in post content, plus buttons, responsive images
+	 * and simple SVG shapes. Scripts, styles, forms, frames and event handler attributes are not part of it.
+	 *
+	 * @return array Allowed tags and attributes for wp_kses().
+	 */
+	public static function filtered_tags() {
+		$g     = array(
+			'class'            => true,
+			'id'               => true,
+			'style'            => true,
+			'title'            => true,
+			'role'             => true,
+			'lang'             => true,
+			'dir'              => true,
+			'aria-hidden'      => true,
+			'aria-label'       => true,
+			'aria-labelledby'  => true,
+			'aria-describedby' => true,
+			'data-*'           => true,
+		);
+		$paint = array(
+			'fill'            => true,
+			'stroke'          => true,
+			'stroke-width'    => true,
+			'stroke-linecap'  => true,
+			'stroke-linejoin' => true,
+			'fill-rule'       => true,
+			'clip-rule'       => true,
+			'opacity'         => true,
+			'transform'       => true,
+		);
+		$extra = array(
+			'button'   => $g + array(
+				'type'     => true,
+				'disabled' => true,
+				'name'     => true,
+				'value'    => true,
+			),
+			'picture'  => $g,
+			'source'   => $g + array(
+				'src'    => true,
+				'srcset' => true,
+				'sizes'  => true,
+				'media'  => true,
+				'type'   => true,
+			),
+			'svg'      => $g + $paint + array(
+				'xmlns'               => true,
+				'viewbox'             => true,
+				'width'               => true,
+				'height'              => true,
+				'focusable'           => true,
+				'preserveaspectratio' => true,
+			),
+			'g'        => $g + $paint,
+			'path'     => $g + $paint + array( 'd' => true ),
+			'circle'   => $g + $paint + array(
+				'cx' => true,
+				'cy' => true,
+				'r'  => true,
+			),
+			'ellipse'  => $g + $paint + array(
+				'cx' => true,
+				'cy' => true,
+				'rx' => true,
+				'ry' => true,
+			),
+			'rect'     => $g + $paint + array(
+				'x'      => true,
+				'y'      => true,
+				'width'  => true,
+				'height' => true,
+				'rx'     => true,
+				'ry'     => true,
+			),
+			'line'     => $g + $paint + array(
+				'x1' => true,
+				'y1' => true,
+				'x2' => true,
+				'y2' => true,
+			),
+			'polyline' => $g + $paint + array( 'points' => true ),
+			'polygon'  => $g + $paint + array( 'points' => true ),
+		);
+		return apply_filters( 'stasimo_filtered_html', array_merge( wp_kses_allowed_html( 'post' ), $extra ) );
+	}
+
+	/**
+	 * Absolute http(s) URL for a link found in an uploaded page, or an empty string if it is not safe to use.
+	 *
+	 * @param string $href     URL as written in the page.
+	 * @param string $page_url Public URL of the page that contains it.
+	 * @return string
+	 */
+	private static function resolve_url( $href, $page_url ) {
+		$href = trim( $href );
+		if ( '' === $href || ( preg_match( '#^[a-z][a-z0-9+.-]*:#i', $href ) && ! preg_match( '#^https?://#i', $href ) ) ) {
+			return '';
+		}
+		if ( preg_match( '#^https?://#i', $href ) ) {
+			$abs = $href;
+		} elseif ( 0 === strpos( $href, '//' ) ) {
+			$abs = set_url_scheme( $href );
+		} elseif ( 0 === strpos( $href, '/' ) ) {
+			$abs = home_url( $href );
+		} else {
+			$base = (string) strtok( $page_url, '?#' );
+			$abs  = substr( $base, 0, (int) strrpos( $base, '/' ) + 1 ) . $href;
+		}
+		if ( ! preg_match( '#^(https?://[^/?\#]+)([^?\#]*)(.*)$#i', $abs, $u ) ) {
+			return '';
+		}
+		$path = array();
+		foreach ( explode( '/', $u[2] ) as $seg ) {
+			if ( '..' === $seg ) {
+				array_pop( $path );
+			} elseif ( '.' !== $seg ) {
+				$path[] = $seg;
+			}
+		}
+		return esc_url_raw( $u[1] . implode( '/', $path ) . $u[3], array( 'http', 'https' ) );
+	}
+
+	/**
+	 * Queue the stylesheets and inline styles of an uploaded page through the WordPress style API, so wp_head() prints
+	 * them escaped. This is what a filtered mount does instead of printing the page's own head.
+	 *
+	 * @param string $head     Markup to take stylesheets and styles from: the document head and body.
+	 * @param string $page_url Public URL of the page.
+	 */
+	public static function enqueue_head_assets( $head, $page_url ) {
+		$i = 0;
+		if ( preg_match_all( '/<link\s[^>]*>/is', $head, $links ) ) {
+			foreach ( $links[0] as $tag ) {
+				$a = self::attrs( $tag );
+				if ( empty( $a['href'] ) || 'stylesheet' !== strtolower( trim( isset( $a['rel'] ) ? $a['rel'] : '' ) ) ) {
+					continue;
+				}
+				$href = self::resolve_url( $a['href'], $page_url );
+				if ( '' === $href ) {
+					continue;
+				}
+				$media = isset( $a['media'] ) && preg_match( '/^[a-z0-9 ,()\-:.<>=]+$/i', $a['media'] ) ? $a['media'] : 'all';
+				wp_enqueue_style( 'stasimo-site-' . ( ++$i ), $href, array(), STASIMO_VERSION, $media );
+			}
+		}
+		$css = '';
+		if ( preg_match_all( '/<style\b[^>]*>(.*?)<\/style>/is', $head, $blocks ) ) {
+			foreach ( $blocks[1] as $block ) {
+				$css .= wp_strip_all_tags( $block ) . "\n";
+			}
+		}
+		if ( '' !== trim( $css ) ) {
+			wp_register_style( 'stasimo-site-inline', false, array(), STASIMO_VERSION );
+			wp_enqueue_style( 'stasimo-site-inline' );
+			wp_add_inline_style( 'stasimo-site-inline', $css );
+		}
 	}
 
 	/**

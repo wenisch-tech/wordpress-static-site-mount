@@ -14,6 +14,8 @@ Serve a built static site (Docusaurus, MkDocs, Hugo, plain HTML) inside your the
 
 Stasimo publishes a folder of static HTML at a URL of your WordPress site, for example documentation at `/docs/my-project/`. Pages are wrapped in your block theme's header and footer, so the menu, branding and light/dark switch stay consistent.
 
+By default pages are filtered: scripts, forms, frames and event handlers are removed, the rest is shown in your theme. For sites that need their own JavaScript (Docusaurus, MkDocs) a mount can be switched to Trusted.
+
 * Mount a folder at a URL prefix; assets are served with correct MIME types, ETag and long-lived caching for fingerprinted files.
 * The generator's own navbar and footer are hidden (JavaScript apps keep working) or removed (plain HTML).
 * Title, meta description, canonical URL, Open Graph and Twitter tags are written for every page; Yoast SEO's duplicate tags are suppressed for mounted pages.
@@ -39,7 +41,7 @@ Pages are served, but the header and footer wrapper needs a block theme. Use the
 JavaScript apps such as Docusaurus embed their base URL in the bundle. The plugin does not rewrite bundles.
 
 = Is it safe? =
-A mounted build is raw HTML and JavaScript served from your own site, so deploying needs the manage_options and unfiltered_html capabilities (on multisite only super admins). Uploads are limited to allow-listed file types, unsafe paths are refused, and files are served only through WordPress. On nginx add `location ^~ /wp-content/uploads/stasimo/ { deny all; }` so the raw files are not reachable directly (Apache is handled by a generated .htaccess).
+By default a mount is filtered: pages go through wp_kses() and their scripts are removed. A Trusted mount serves the build as it is, including its JavaScript, so it should only be used for sites you built yourself. Managing mounts, trusted or not, needs the manage_options and unfiltered_html capabilities (on multisite only super admins). Uploads are limited to allow-listed file types, unsafe paths are refused, and files are served only through WordPress. On nginx add `location ^~ /wp-content/uploads/stasimo/ { deny all; }` so the raw files are not reachable directly (Apache is handled by a generated .htaccess).
 
 = Does the plugin contact external servers? =
 No. It makes no external requests and collects no personal data.

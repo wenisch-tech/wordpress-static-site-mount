@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" onclick="evilHtml()">
+<head>
+<title>Hostile page</title>
+<meta name="description" content="A page full of things a filtered mount must remove.">
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="javascript:alert('link')">
+<style>.fine { color: rgb(1, 2, 3); } .child > p { margin: 0; }</style>
+<script>window.headScript = "ran";</script>
+</head>
+<body onload="evilBody()" class="docs">
+<h1>Hello from a static file</h1>
+<p class="fine" style="color:red">Plain text with <strong>formatting</strong> and an <a href="https://example.com/ok">ordinary link</a>.</p>
+<script>window.bodyScript = "ran";</script>
+<img src="x.png" alt="logo" onerror="evilImg()">
+<a href="javascript:evilLink()">bad link</a>
+<iframe src="https://example.com/frame"></iframe>
+<form action="https://example.com/post"><input name="q"><button type="submit">Go</button></form>
+<noscript>needs scripts</noscript>
+<svg viewBox="0 0 10 10" width="20" height="20"><path d="M0 0h10v10z" fill="blue"/></svg>
+<table><tr><td>cell</td></tr></table>
+</body>
+</html>

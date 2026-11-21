@@ -12,6 +12,8 @@ I wrote it because static sites, project docs in particular, usually end up on a
 
 You deploy a folder of HTML files. When someone opens one of its URLs, the plugin reads the file, takes your block theme's header and footer, and prints the page's own `<body>` between them. If the files come with their own navbar and footer, those are hidden with CSS, or removed on the server for plain HTML. Hiding is the safer choice for JavaScript-driven sites (Docusaurus and MkDocs Material are examples), because their scripts expect the original markup to be there.
 
+What happens to the rest of the page depends on the mount's **Page content** setting. In the default, *Filtered*, the page goes through `wp_kses()`: scripts, styles, forms, frames and event handler attributes are removed, and what is left (text, images, tables, simple SVG) is shown inside your theme. Stylesheets and inline styles of the page are kept and printed through the WordPress style API. That is enough for hand-written pages, reports and the static part of most generated sites: Docusaurus and MkDocs pages stay readable, they just lose their JavaScript (search, menus, tabs). In *Trusted* mode the page is printed as it is and its JavaScript runs, which is what those generators need. Switch a mount to Trusted only for sites you built yourself.
+
 The plugin writes the head itself: title, description, canonical URL, Open Graph and Twitter tags, `noindex` if the page asks for it. If Yoast SEO is active, its tags are switched off on these pages so nothing is duplicated. All pages go into `/stasimo-pages.xml`, which is added to Yoast's sitemap index and to `robots.txt`.
 
 Other things it does:
@@ -44,7 +46,7 @@ trailingSlash: true,
 
 MkDocs: `site_url: https://example.com/docs/my-project/`
 
-Other generators have an equivalent (Hugo: `baseURL`). Then go to Static Sites, Mounts, Add mount, and fill in a name (`my-project`), the URL prefix (`docs/my-project`) and the type. Choose a generator's type if there is one (Docusaurus, MkDocs Material), otherwise "Generic static site". Two optional fields are worth knowing about: the localStorage key your theme uses for light/dark, and the height of your header if it is fixed at the top (the content is pushed down by that much).
+Other generators have an equivalent (Hugo: `baseURL`). Then go to Static Sites, Mounts, Add mount, and fill in a name (`my-project`), the URL prefix (`docs/my-project`) and the type. Choose a generator's type if there is one (Docusaurus, MkDocs Material), otherwise "Generic static site". Set *Page content* to *Trusted* if the site needs its own JavaScript, which Docusaurus and MkDocs do for search and menus. Two optional fields are worth knowing about: the localStorage key your theme uses for light/dark, and the height of your header if it is fixed at the top (the content is pushed down by that much).
 
 ## Deploy from CI
 
@@ -68,7 +70,7 @@ The zip can have its files at the top level or inside one folder. If the build h
 | `POST /wp-json/stasimo/v1/mounts/<name>/deploy` | replace the folder with a zip, re-index |
 | `POST /wp-json/stasimo/v1/mounts/<name>/reindex` | re-index after changing files some other way |
 
-WP-CLI: `wp stasimo list`, `add`, `deploy`, `reindex`.
+WP-CLI: `wp stasimo list`, `add`, `deploy`, `reindex`. Pass `--trusted` to `add` for a trusted mount, and `"trusted": true` in the JSON of the PUT request.
 
 ## Mount settings
 
@@ -77,6 +79,7 @@ WP-CLI: `wp stasimo list`, `add`, `deploy`, `reindex`.
 | Name | short name; also the folder name under `wp-content/uploads/stasimo/` |
 | URL prefix | where the site appears, e.g. `docs/my-project`; must match the build's base URL |
 | Type | a preset for a known generator (Docusaurus, MkDocs Material) or generic static site |
+| Page content | *Filtered* (default) or *Trusted*, see above. Setting it needs the same capabilities as deploying |
 | Hide elements | extra CSS selectors to hide (safe for JavaScript apps) |
 | Remove elements | simple selectors (`tag`, `#id`, `.class`, spaces) removed on the server |
 | Space for a fixed header | pixels of padding for a fixed theme header |
@@ -102,7 +105,9 @@ Other hooks: `stasimo_title`, `stasimo_description`, `stasimo_header_html`, `sta
 
 ## Security
 
-A mounted build is HTML and JavaScript served from your own domain. Whoever can deploy can run script on your site, so only deploy builds you trust. Managing mounts therefore needs both `manage_options` and `unfiltered_html`. On multisite, site admins don't have the second one, so only super admins can use the plugin. For CI, use an Application Password of a dedicated administrator.
+By default a mount is *Filtered*: the uploaded pages are passed through `wp_kses()` and their head is rebuilt from stylesheet links and styles only, so an uploaded build cannot add script to your site.
+
+A *Trusted* mount serves the build as it is, HTML and JavaScript from your own domain. Whoever can deploy to it can run script on your site, so only trust builds you made yourself. Managing mounts, trusted or not, needs both `manage_options` and `unfiltered_html`; this is the same trust WordPress gives to post content written by such a user. On multisite, site admins don't have the second capability, so only super admins can use the plugin. For CI, use an Application Password of a dedicated administrator.
 
 Uploads are limited to a list of file types. Names that look executable (`shell.php.png`), paths with `..` or absolute paths, and archives larger than 512 MB unpacked or 50,000 files are refused. Mount folders always sit inside `wp-content/uploads/stasimo/`.
 
@@ -124,6 +129,7 @@ Report vulnerabilities as a [private security advisory](https://github.com/wenis
 ```bash
 tests/run.sh up            # WordPress + MariaDB in Docker, plugin mounted
 tests/smoke.sh http://localhost:8089 docs/mini
+tests/modes.sh              # filtered and trusted mounts against a hostile page
 bin/build-zip.sh           # release zip without tests and dev files
 ```
 

@@ -81,7 +81,8 @@ class Stasimo_Mounts {
 	 *
 	 * Every preset has these keys. The hide key lists CSS selectors that are hidden, which keeps JS apps like Docusaurus
 	 * working because the DOM is untouched. The remove key lists selectors that are removed from the HTML on the server
-	 * (for plain static sites without JS). The theme_key is the localStorage key the generator uses for light and dark,
+	 * (for plain static sites without JS). The scripts key says whether the generator's output needs its own JavaScript, which
+	 * only works in a trusted mount. The theme_key is the localStorage key the generator uses for light and dark,
 	 * so both sides agree. The css key holds extra CSS, where {offset} is replaced by the header offset in px.
 	 *
 	 * @return array[]
@@ -92,6 +93,7 @@ class Stasimo_Mounts {
 			array(
 				'docusaurus'      => array(
 					'label'     => 'Docusaurus',
+					'scripts'   => true,
 					'hide'      => 'nav.navbar, footer.footer',
 					'remove'    => '',
 					'theme_key' => 'theme',
@@ -99,6 +101,7 @@ class Stasimo_Mounts {
 				),
 				'mkdocs-material' => array(
 					'label'     => 'MkDocs Material',
+					'scripts'   => true,
 					// Keep Material's own header as a slim bar under the theme header: it carries search and the mobile menu button.
 					'hide'      => '.md-footer-meta',
 					'remove'    => '',
@@ -112,6 +115,7 @@ class Stasimo_Mounts {
 				),
 				'generic'         => array(
 					'label'     => 'Generic static site (plain HTML)',
+					'scripts'   => false,
 					'hide'      => '',
 					'remove'    => '',
 					'theme_key' => '',
@@ -138,6 +142,7 @@ class Stasimo_Mounts {
 			'title_suffix'   => '',
 			'sitemap'        => true,
 			'noindex'        => false,
+			'trusted'        => false,
 			'header_offset'  => 0,
 			'host_theme_key' => '',
 		);
@@ -240,14 +245,16 @@ class Stasimo_Mounts {
 		}
 		$m['dir'] = $dir;
 
-		$presets             = self::presets();
-		$m['preset']         = isset( $presets[ $m['preset'] ] ) ? $m['preset'] : 'generic';
-		$m['hide']           = self::clean_selectors( $m['hide'] );
-		$m['remove']         = self::clean_selectors( $m['remove'] );
-		$m['title_suffix']   = sanitize_text_field( $m['title_suffix'] );
-		$m['enabled']        = ! isset( $raw['enabled'] ) || filter_var( $raw['enabled'], FILTER_VALIDATE_BOOLEAN );
-		$m['sitemap']        = ! empty( $m['sitemap'] );
-		$m['noindex']        = ! empty( $m['noindex'] );
+		$presets           = self::presets();
+		$m['preset']       = isset( $presets[ $m['preset'] ] ) ? $m['preset'] : 'generic';
+		$m['hide']         = self::clean_selectors( $m['hide'] );
+		$m['remove']       = self::clean_selectors( $m['remove'] );
+		$m['title_suffix'] = sanitize_text_field( $m['title_suffix'] );
+		$m['enabled']      = ! isset( $raw['enabled'] ) || filter_var( $raw['enabled'], FILTER_VALIDATE_BOOLEAN );
+		$m['sitemap']      = ! empty( $m['sitemap'] );
+		$m['noindex']      = ! empty( $m['noindex'] );
+		// Trusted mounts run the site's own JavaScript and print its markup as it is. Everything else is filtered with wp_kses.
+		$m['trusted']        = ! empty( $m['trusted'] ) && filter_var( $m['trusted'], FILTER_VALIDATE_BOOLEAN );
 		$m['header_offset']  = max( 0, min( 400, (int) $m['header_offset'] ) );
 		$m['host_theme_key'] = preg_replace( '/[^A-Za-z0-9_.:-]/', '', (string) $m['host_theme_key'] );
 		return $m;
