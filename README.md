@@ -74,7 +74,7 @@ WP-CLI: `wp stasimo list`, `add`, `deploy`, `reindex`.
 
 | Setting | Meaning |
 |---|---|
-| Name | short name; also the folder name under `wp-content/uploads/static-sites/` |
+| Name | short name; also the folder name under `wp-content/uploads/stasimo/` |
 | URL prefix | where the site appears, e.g. `docs/my-project`; must match the build's base URL |
 | Type | a preset for a known generator (Docusaurus, MkDocs Material) or generic static site |
 | Hide elements | extra CSS selectors to hide (safe for JavaScript apps) |
@@ -104,13 +104,11 @@ Other hooks: `stasimo_title`, `stasimo_description`, `stasimo_header_html`, `sta
 
 A mounted build is HTML and JavaScript served from your own domain. Whoever can deploy can run script on your site, so only deploy builds you trust. Managing mounts therefore needs both `manage_options` and `unfiltered_html`. On multisite, site admins don't have the second one, so only super admins can use the plugin. For CI, use an Application Password of a dedicated administrator.
 
-Uploads are limited to a list of file types. Names that look executable (`shell.php.png`), paths with `..` or absolute paths, and archives larger than 512 MB unpacked or 50,000 files are refused. Mount folders always sit inside `wp-content/uploads/static-sites/`.
+Uploads are limited to a list of file types. Names that look executable (`shell.php.png`), paths with `..` or absolute paths, and archives larger than 512 MB unpacked or 50,000 files are refused. Mount folders always sit inside `wp-content/uploads/stasimo/`.
 
-On Apache the plugin writes an `.htaccess` that blocks direct access to that folder. On nginx you need to add `location ^~ /wp-content/uploads/static-sites/ { deny all; }` yourself, otherwise the raw files can also be fetched without the theme around them.
+On Apache the plugin writes an `.htaccess` that blocks direct access to that folder. On nginx you need to add `location ^~ /wp-content/uploads/stasimo/ { deny all; }` yourself, otherwise the raw files can also be fetched without the theme around them.
 
 The plugin makes no outgoing requests and stores no personal data.
-
-If you upgrade from 0.2.x, settings are migrated on the first request. A `wp-content/static-sites/` folder from the old version keeps being used until you move it.
 
 Report vulnerabilities as a [private security advisory](https://github.com/wenisch-tech/wordpress-static-site-mount/security/advisories/new), not as a public issue.
 

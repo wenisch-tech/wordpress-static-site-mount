@@ -47,7 +47,7 @@ class Stasimo_CLI {
 	 * : docusaurus or generic.
 	 *
 	 * [--dir=<dir>]
-	 * : Folder name inside the static-sites base folder (uploads) (absolute paths need the stasimo_allow_external_dirs filter).
+	 * : Folder name inside the stasimo base folder in the uploads directory (absolute paths need the stasimo_allow_external_dirs filter).
 	 *
 	 * [--header-offset=<px>]
 	 * : Space for a fixed theme header.

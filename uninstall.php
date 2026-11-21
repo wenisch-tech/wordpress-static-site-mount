@@ -16,7 +16,3 @@ if ( is_array( $stasimo_mounts ) ) {
 }
 delete_option( 'stasimo_mounts' );
 delete_option( 'stasimo_rules_hash' );
-
-// Leftovers of versions before 0.3.0.
-delete_option( 'ssm_mounts' );
-delete_option( 'ssm_rules_hash' );

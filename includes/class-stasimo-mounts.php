@@ -227,7 +227,7 @@ class Stasimo_Mounts {
 		}
 		$m['prefix'] = $prefix;
 
-		// The folder is always inside the base folder (uploads/static-sites): a deploy replaces it, so it must never point elsewhere.
+		// The folder is always inside the base folder (uploads/stasimo): a deploy replaces it, so it must never point elsewhere.
 		// Use the stasimo_base_dir filter to move the base folder, or stasimo_allow_external_dirs to allow absolute paths (WP-CLI use).
 		$dir = trim( (string) $m['dir'], " \t\n\r\0\x0B/" );
 		if ( '' !== $dir ) {
@@ -235,7 +235,7 @@ class Stasimo_Mounts {
 			if ( $absolute && apply_filters( 'stasimo_allow_external_dirs', false ) ) {
 				$dir = untrailingslashit( (string) $m['dir'] );
 			} elseif ( $absolute || ! preg_match( '#^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$#', $dir ) || false !== strpos( $dir, '..' ) ) {
-				return new WP_Error( 'stasimo_dir', __( 'The folder must be a plain name inside the static-sites folder (letters, digits, dash, underscore).', 'stasimo-static-site-mount' ) );
+				return new WP_Error( 'stasimo_dir', __( 'The folder must be a plain name inside the stasimo folder (letters, digits, dash, underscore).', 'stasimo-static-site-mount' ) );
 			}
 		}
 		$m['dir'] = $dir;
@@ -285,17 +285,13 @@ class Stasimo_Mounts {
 	}
 
 	/**
-	 * Base folder for all mounts: <uploads>/static-sites (per site on multisite).
-	 * Versions before 0.3.0 used wp-content/static-sites; that folder keeps being used while it exists and the new one does not.
+	 * Base folder for all mounts: <uploads>/stasimo (per site on multisite).
+	 *
+	 * @return string Absolute path without trailing slash.
 	 */
 	public static function base_dir() {
-		static $default = null;
-		if ( null === $default ) {
-			$up      = wp_upload_dir( null, false );
-			$new     = untrailingslashit( empty( $up['basedir'] ) ? WP_CONTENT_DIR . '/uploads' : $up['basedir'] ) . '/static-sites';
-			$legacy  = WP_CONTENT_DIR . '/static-sites';
-			$default = ( is_dir( $legacy ) && ! is_dir( $new ) ) ? $legacy : $new;
-		}
+		$up      = wp_upload_dir( null, false );
+		$default = untrailingslashit( empty( $up['basedir'] ) ? WP_CONTENT_DIR . '/uploads' : $up['basedir'] ) . '/stasimo';
 		return untrailingslashit( apply_filters( 'stasimo_base_dir', $default ) );
 	}
 

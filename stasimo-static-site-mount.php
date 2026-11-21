@@ -21,7 +21,6 @@ define( 'STASIMO_VERSION', '0.3.0' );
 define( 'STASIMO_FILE', __FILE__ );
 define( 'STASIMO_DIR', plugin_dir_path( __FILE__ ) );
 
-require_once STASIMO_DIR . 'includes/class-stasimo-upgrade.php';
 require_once STASIMO_DIR . 'includes/class-stasimo-files.php';
 require_once STASIMO_DIR . 'includes/class-stasimo-mounts.php';
 require_once STASIMO_DIR . 'includes/class-stasimo-html.php';
@@ -33,7 +32,6 @@ require_once STASIMO_DIR . 'includes/class-stasimo-deployer.php';
 require_once STASIMO_DIR . 'includes/class-stasimo-rest.php';
 require_once STASIMO_DIR . 'includes/class-stasimo-admin.php';
 
-Stasimo_Upgrade::init();
 Stasimo_Server::init();
 Stasimo_Sitemap::init();
 Stasimo_Rest::init();
