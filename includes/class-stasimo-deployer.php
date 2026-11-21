@@ -35,11 +35,11 @@ class Stasimo_Deployer {
 	 */
 	private static function safe_name( $name ) {
 		if ( false !== strpos( $name, "\0" ) || false !== strpos( $name, '\\' ) || preg_match( '#^([A-Za-z]:|/)#', $name ) ) {
-			return new WP_Error( 'stasimo_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'static-site-mount' ), $name ) );
+			return new WP_Error( 'stasimo_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'stasimo-static-site-mount' ), $name ) );
 		}
 		foreach ( explode( '/', $name ) as $seg ) {
 			if ( '..' === $seg ) {
-				return new WP_Error( 'stasimo_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'static-site-mount' ), $name ) );
+				return new WP_Error( 'stasimo_zip_path', sprintf( /* translators: %s file name */ __( 'Unsafe path in archive: %s', 'stasimo-static-site-mount' ), $name ) );
 			}
 		}
 		return $name;
@@ -52,11 +52,11 @@ class Stasimo_Deployer {
 	 */
 	public static function deploy_zip( array $m, $zip_path ) {
 		if ( ! class_exists( 'ZipArchive' ) ) {
-			return new WP_Error( 'stasimo_nozip', __( 'The PHP zip extension is not available on this server.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_nozip', __( 'The PHP zip extension is not available on this server.', 'stasimo-static-site-mount' ) );
 		}
 		$zip = new ZipArchive();
 		if ( true !== $zip->open( $zip_path ) ) {
-			return new WP_Error( 'stasimo_badzip', __( 'The uploaded file is not a valid zip archive.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_badzip', __( 'The uploaded file is not a valid zip archive.', 'stasimo-static-site-mount' ) );
 		}
 
 		$types   = Stasimo_Server::mime_types();
@@ -75,7 +75,7 @@ class Stasimo_Deployer {
 			$total += (int) $st['size'];
 			if ( count( $entries ) >= self::MAX_FILES || $total > self::MAX_BYTES ) {
 				$zip->close();
-				return new WP_Error( 'stasimo_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
+				return new WP_Error( 'stasimo_toobig', __( 'The archive is too large.', 'stasimo-static-site-mount' ) );
 			}
 			$entries[ $i ] = $name;
 		}
@@ -103,7 +103,7 @@ class Stasimo_Deployer {
 			$ext = strtolower( pathinfo( $rel, PATHINFO_EXTENSION ) );
 			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $rel ) ) {
 				$zip->close();
-				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $rel ) );
+				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'stasimo-static-site-mount' ), $rel ) );
 			}
 			$keep[ $i ] = $name;
 		}
@@ -115,7 +115,7 @@ class Stasimo_Deployer {
 			$stream = $zip->getStream( $zip->getNameIndex( $i ) );
 			if ( ! $stream ) {
 				$zip->close();
-				return new WP_Error( 'stasimo_badzip', __( 'The uploaded file is not a valid zip archive.', 'static-site-mount' ) );
+				return new WP_Error( 'stasimo_badzip', __( 'The uploaded file is not a valid zip archive.', 'stasimo-static-site-mount' ) );
 			}
 			$real = 0;
 			while ( ! feof( $stream ) ) {
@@ -126,13 +126,13 @@ class Stasimo_Deployer {
 				$real += strlen( $chunk );
 				if ( $actual + $real > self::MAX_BYTES ) {
 					$zip->close();
-					return new WP_Error( 'stasimo_toobig', __( 'The archive is too large.', 'static-site-mount' ) );
+					return new WP_Error( 'stasimo_toobig', __( 'The archive is too large.', 'stasimo-static-site-mount' ) );
 				}
 			}
 			$declared = $zip->statIndex( $i );
 			if ( $real !== (int) $declared['size'] ) {
 				$zip->close();
-				return new WP_Error( 'stasimo_badzip', __( 'The archive is damaged: a file is not the size its header says.', 'static-site-mount' ) );
+				return new WP_Error( 'stasimo_badzip', __( 'The archive is damaged: a file is not the size its header says.', 'stasimo-static-site-mount' ) );
 			}
 			$actual += $real;
 		}
@@ -140,7 +140,7 @@ class Stasimo_Deployer {
 		$dir = Stasimo_Mounts::dir( $m );
 		if ( ! self::dir_is_safe( $dir ) ) {
 			$zip->close();
-			return new WP_Error( 'stasimo_dir', __( 'The mount folder is outside the allowed location.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_dir', __( 'The mount folder is outside the allowed location.', 'stasimo-static-site-mount' ) );
 		}
 		Stasimo_Mounts::prepare_base_dir();
 		wp_mkdir_p( dirname( $dir ) );
@@ -148,13 +148,13 @@ class Stasimo_Deployer {
 		$old  = $dir . '.stasimo-old-' . wp_generate_password( 6, false );
 		if ( ! wp_mkdir_p( $work ) ) {
 			$zip->close();
-			return new WP_Error( 'stasimo_mkdir', __( 'Could not create a temporary folder.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_mkdir', __( 'Could not create a temporary folder.', 'stasimo-static-site-mount' ) );
 		}
 		$done = $zip->extractTo( $work, array_map( array( $zip, 'getNameIndex' ), array_keys( $keep ) ) );
 		$zip->close();
 		if ( ! $done ) {
 			self::rrmdir( $work );
-			return new WP_Error( 'stasimo_write', __( 'Could not write extracted files.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_write', __( 'Could not write extracted files.', 'stasimo-static-site-mount' ) );
 		}
 		$src = '' !== $strip ? $work . '/' . rtrim( $strip, '/' ) : $work;
 		return self::swap( $m, $dir, $src, $old, count( $keep ), $work );
@@ -166,12 +166,12 @@ class Stasimo_Deployer {
 	public static function deploy_dir( array $m, $src ) {
 		$src = realpath( $src );
 		if ( ! $src || ! is_dir( $src ) ) {
-			return new WP_Error( 'stasimo_src', __( 'Source folder not found.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_src', __( 'Source folder not found.', 'stasimo-static-site-mount' ) );
 		}
 		$types = Stasimo_Server::mime_types();
 		$dir   = Stasimo_Mounts::dir( $m );
 		if ( ! self::dir_is_safe( $dir ) ) {
-			return new WP_Error( 'stasimo_dir', __( 'The mount folder is outside the allowed location.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_dir', __( 'The mount folder is outside the allowed location.', 'stasimo-static-site-mount' ) );
 		}
 		Stasimo_Mounts::prepare_base_dir();
 		wp_mkdir_p( dirname( $dir ) );
@@ -188,7 +188,7 @@ class Stasimo_Deployer {
 			$ext = strtolower( pathinfo( $rel, PATHINFO_EXTENSION ) );
 			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $rel ) ) {
 				self::rrmdir( $tmp );
-				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'static-site-mount' ), $rel ) );
+				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'stasimo-static-site-mount' ), $rel ) );
 			}
 			wp_mkdir_p( dirname( $tmp . '/' . $rel ) );
 			Stasimo_Files::fs()->copy( $f->getPathname(), $tmp . '/' . $rel, true );
@@ -204,19 +204,19 @@ class Stasimo_Deployer {
 		$fs = Stasimo_Files::fs();
 		if ( ! is_file( $src . '/index.html' ) ) {
 			self::rrmdir( $work );
-			return new WP_Error( 'stasimo_noindex', __( 'The build has no index.html at its top level, nothing was changed.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_noindex', __( 'The build has no index.html at its top level, nothing was changed.', 'stasimo-static-site-mount' ) );
 		}
 		// Folder moves are renames inside one filesystem, so a visitor sees either the old build or the new one.
 		if ( is_dir( $dir ) && ! $fs->move( $dir, $old, false ) ) {
 			self::rrmdir( $work );
-			return new WP_Error( 'stasimo_swap', __( 'Could not replace the existing folder.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_swap', __( 'Could not replace the existing folder.', 'stasimo-static-site-mount' ) );
 		}
 		if ( ! $fs->move( $src, $dir, false ) ) {
 			if ( is_dir( $old ) ) {
 				$fs->move( $old, $dir, false );
 			}
 			self::rrmdir( $work );
-			return new WP_Error( 'stasimo_swap', __( 'Could not activate the new build.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_swap', __( 'Could not activate the new build.', 'stasimo-static-site-mount' ) );
 		}
 		if ( $work !== $src ) {
 			self::rrmdir( $work ); // the wrapper folder of an unwrapped build.

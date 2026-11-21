@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       Static Site Mount
+ * Plugin Name:       Stasimo - Static Site Mount
  * Plugin URI:        https://github.com/wenisch-tech/wordpress-static-site-mount
  * Description:       Mount static site builds (Docusaurus, MkDocs, Hugo, plain HTML) at a URL path, wrapped in your theme's header and footer, with SEO tags and sitemap entries. Deploy from CI with one request.
  * Version:           0.3.0
@@ -10,7 +10,7 @@
  * Author URI:        https://wenisch.tech
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       static-site-mount
+ * Text Domain:       stasimo-static-site-mount
  *
  * @package StaticSiteMount
  */
@@ -41,7 +41,7 @@ Stasimo_Admin::init();
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once STASIMO_DIR . 'includes/class-stasimo-cli.php';
-	WP_CLI::add_command( 'static-site-mount', 'Stasimo_CLI' );
+	WP_CLI::add_command( 'stasimo', 'Stasimo_CLI' );
 }
 
 register_activation_hook(

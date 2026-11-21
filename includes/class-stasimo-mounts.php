@@ -39,12 +39,12 @@ class Stasimo_Mounts {
 			$b = $m['prefix'];
 			if ( $a === $b || 0 === strpos( $b, $a . '/' ) || 0 === strpos( $a, $b . '/' ) ) {
 				/* translators: %s name of the other mount */
-				return sprintf( __( 'The URL prefix overlaps with the mount "%s".', 'static-site-mount' ), $slug );
+				return sprintf( __( 'The URL prefix overlaps with the mount "%s".', 'stasimo-static-site-mount' ), $slug );
 			}
 		}
 		if ( get_page_by_path( $m['prefix'] ) ) {
 			/* translators: %s URL prefix */
-			return sprintf( __( 'A WordPress page already uses /%s/. Choose another prefix.', 'static-site-mount' ), $m['prefix'] );
+			return sprintf( __( 'A WordPress page already uses /%s/. Choose another prefix.', 'stasimo-static-site-mount' ), $m['prefix'] );
 		}
 		return '';
 	}
@@ -151,7 +151,7 @@ class Stasimo_Mounts {
 		$m          = wp_parse_args( $raw, self::defaults() );
 		$m['slug']  = sanitize_title( $m['slug'] );
 		if ( false !== strpos( (string) $m['prefix'], '..' ) ) {
-			return new WP_Error( 'stasimo_prefix', __( 'The URL prefix must not contain "..".', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_prefix', __( 'The URL prefix must not contain "..".', 'stasimo-static-site-mount' ) );
 		}
 		$prefix     = strtolower( trim( (string) $m['prefix'], " \t\n\r\0\x0B/" ) );
 		$prefix     = preg_replace( '#[^a-z0-9/_-]#', '', $prefix );
@@ -159,14 +159,14 @@ class Stasimo_Mounts {
 		$prefix     = trim( $prefix, '/' );
 
 		if ( '' === $m['slug'] ) {
-			return new WP_Error( 'stasimo_slug', __( 'A short name (slug) is required.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_slug', __( 'A short name (slug) is required.', 'stasimo-static-site-mount' ) );
 		}
 		if ( '' === $prefix || false !== strpos( $prefix, '..' ) ) {
-			return new WP_Error( 'stasimo_prefix', __( 'A URL prefix such as docs/my-project is required.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_prefix', __( 'A URL prefix such as docs/my-project is required.', 'stasimo-static-site-mount' ) );
 		}
 		$first = explode( '/', $prefix )[0];
 		if ( in_array( $first, self::RESERVED, true ) ) {
-			return new WP_Error( 'stasimo_reserved', __( 'That URL prefix is reserved by WordPress.', 'static-site-mount' ) );
+			return new WP_Error( 'stasimo_reserved', __( 'That URL prefix is reserved by WordPress.', 'stasimo-static-site-mount' ) );
 		}
 		$m['prefix'] = $prefix;
 
@@ -178,7 +178,7 @@ class Stasimo_Mounts {
 			if ( $absolute && apply_filters( 'stasimo_allow_external_dirs', false ) ) {
 				$dir = untrailingslashit( (string) $m['dir'] );
 			} elseif ( $absolute || ! preg_match( '#^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$#', $dir ) || false !== strpos( $dir, '..' ) ) {
-				return new WP_Error( 'stasimo_dir', __( 'The folder must be a plain name inside the static-sites folder (letters, digits, dash, underscore).', 'static-site-mount' ) );
+				return new WP_Error( 'stasimo_dir', __( 'The folder must be a plain name inside the static-sites folder (letters, digits, dash, underscore).', 'stasimo-static-site-mount' ) );
 			}
 		}
 		$m['dir'] = $dir;

@@ -37,7 +37,7 @@ class Stasimo_Indexer {
 	public static function reindex( array $m ) {
 		$dir = Stasimo_Mounts::dir( $m );
 		if ( ! is_dir( $dir ) ) {
-			return new WP_Error( 'stasimo_nodir', sprintf( /* translators: %s folder */ __( 'Folder not found: %s', 'static-site-mount' ), $dir ) );
+			return new WP_Error( 'stasimo_nodir', sprintf( /* translators: %s folder */ __( 'Folder not found: %s', 'stasimo-static-site-mount' ), $dir ) );
 		}
 		$real = realpath( $dir );
 		$list = array();

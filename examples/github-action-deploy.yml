@@ -1,4 +1,4 @@
-# Build Docusaurus and deploy it to a WordPress site that runs the Static Site Mount plugin.
+# Build Docusaurus and deploy it to a WordPress site that runs the Stasimo - Static Site Mount plugin.
 #
 # Repository secrets / variables:
 #   WP_URL           https://example.com                (variable)
@@ -36,4 +36,4 @@ jobs:
         run: |
           curl -fsS -u "${{ secrets.WP_USER }}:${{ secrets.WP_APP_PASSWORD }}" \
             -F "file=@build.zip" \
-            "${{ vars.WP_URL }}/wp-json/static-site-mount/v1/mounts/${{ vars.MOUNT }}/deploy"
+            "${{ vars.WP_URL }}/wp-json/stasimo/v1/mounts/${{ vars.MOUNT }}/deploy"

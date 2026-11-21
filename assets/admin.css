@@ -1,4 +1,4 @@
-/* Static Site Mount: admin screens. Uses WordPress admin colors so it fits any admin scheme. */
+/* Stasimo: admin screens. Uses WordPress admin colors so it fits any admin scheme. */
 .stasimo-wrap { max-width: 1180px; }
 .stasimo-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 6px; }
 .stasimo-head h1 { margin: 0; padding: 0; }

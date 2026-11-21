@@ -9,8 +9,8 @@ defined( 'ABSPATH' ) || exit;
 
 class Stasimo_Admin {
 
-	const PAGE       = 'static-site-mount';
-	const PAGE_ABOUT = 'static-site-mount-about';
+	const PAGE       = 'stasimo';
+	const PAGE_ABOUT = 'stasimo-about';
 
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
@@ -25,18 +25,18 @@ class Stasimo_Admin {
 	/* ------------------------------------------------------------------ menu */
 
 	public static function links( $links ) {
-		array_unshift( $links, '<a href="' . esc_url( self::url() ) . '">' . esc_html__( 'Mounts', 'static-site-mount' ) . '</a>' );
+		array_unshift( $links, '<a href="' . esc_url( self::url() ) . '">' . esc_html__( 'Mounts', 'stasimo-static-site-mount' ) . '</a>' );
 		return $links;
 	}
 
 	public static function menu() {
-		add_menu_page( __( 'Static Sites', 'static-site-mount' ), __( 'Static Sites', 'static-site-mount' ), 'manage_options', self::PAGE, array( __CLASS__, 'page_mounts' ), 'dashicons-networking', 58 );
-		add_submenu_page( self::PAGE, __( 'Mounts', 'static-site-mount' ), __( 'Mounts', 'static-site-mount' ), 'manage_options', self::PAGE, array( __CLASS__, 'page_mounts' ) );
-		add_submenu_page( self::PAGE, __( 'About Static Site Mount', 'static-site-mount' ), __( 'About', 'static-site-mount' ), 'manage_options', self::PAGE_ABOUT, array( __CLASS__, 'page_about' ) );
+		add_menu_page( __( 'Static Sites', 'stasimo-static-site-mount' ), __( 'Static Sites', 'stasimo-static-site-mount' ), 'manage_options', self::PAGE, array( __CLASS__, 'page_mounts' ), 'dashicons-networking', 58 );
+		add_submenu_page( self::PAGE, __( 'Mounts', 'stasimo-static-site-mount' ), __( 'Mounts', 'stasimo-static-site-mount' ), 'manage_options', self::PAGE, array( __CLASS__, 'page_mounts' ) );
+		add_submenu_page( self::PAGE, __( 'About Stasimo', 'stasimo-static-site-mount' ), __( 'About', 'stasimo-static-site-mount' ), 'manage_options', self::PAGE_ABOUT, array( __CLASS__, 'page_about' ) );
 	}
 
 	public static function assets( $hook ) {
-		if ( false === strpos( (string) $hook, 'static-site-mount' ) ) {
+		if ( false === strpos( (string) $hook, 'stasimo' ) ) {
 			return;
 		}
 		wp_enqueue_style( 'stasimo-admin', plugins_url( 'assets/admin.css', STASIMO_FILE ), array(), STASIMO_VERSION );
@@ -59,7 +59,7 @@ class Stasimo_Admin {
 
 	private static function guard() {
 		if ( ! Stasimo_Mounts::can_manage() ) {
-			wp_die( esc_html__( 'Not allowed. Managing mounts needs the manage_options and unfiltered_html capabilities, because a mounted build can contain JavaScript.', 'static-site-mount' ), '', array( 'response' => 403 ) );
+			wp_die( esc_html__( 'Not allowed. Managing mounts needs the manage_options and unfiltered_html capabilities, because a mounted build can contain JavaScript.', 'stasimo-static-site-mount' ), '', array( 'response' => 403 ) );
 		}
 	}
 
@@ -76,12 +76,12 @@ class Stasimo_Admin {
 
 	private static function status( array $m ) {
 		if ( ! $m['enabled'] ) {
-			return array( 'off', __( 'Disabled', 'static-site-mount' ) );
+			return array( 'off', __( 'Disabled', 'stasimo-static-site-mount' ) );
 		}
 		if ( ! is_dir( Stasimo_Mounts::dir( $m ) ) ) {
-			return array( 'warn', __( 'No files yet', 'static-site-mount' ) );
+			return array( 'warn', __( 'No files yet', 'stasimo-static-site-mount' ) );
 		}
-		return array( 'on', __( 'Active', 'static-site-mount' ) );
+		return array( 'on', __( 'Active', 'stasimo-static-site-mount' ) );
 	}
 
 	private static function badge( array $m ) {
@@ -106,7 +106,7 @@ class Stasimo_Admin {
 			self::back( $m->get_error_message(), 'error', '' !== $original ? array( 'mount' => $original ) : array( 'action' => 'new' ) );
 		}
 		if ( '' === $original && isset( $all[ $m['slug'] ] ) ) {
-			self::back( __( 'A mount with this name already exists.', 'static-site-mount' ), 'error', array( 'action' => 'new' ) );
+			self::back( __( 'A mount with this name already exists.', 'stasimo-static-site-mount' ), 'error', array( 'action' => 'new' ) );
 		}
 		$conflict = Stasimo_Mounts::conflict( $m );
 		if ( '' !== $conflict ) {
@@ -115,7 +115,7 @@ class Stasimo_Admin {
 		$all[ $m['slug'] ] = $m;
 		Stasimo_Mounts::save_all( $all );
 		Stasimo_Mounts::prepare_base_dir();
-		self::back( '' === $original ? __( 'Mount created. Upload the build next (see Deploy below).', 'static-site-mount' ) : __( 'Saved.', 'static-site-mount' ), 'success', array( 'mount' => $m['slug'] ) );
+		self::back( '' === $original ? __( 'Mount created. Upload the build next (see Deploy below).', 'stasimo-static-site-mount' ) : __( 'Saved.', 'stasimo-static-site-mount' ), 'success', array( 'mount' => $m['slug'] ) );
 	}
 
 	public static function reindex() {
@@ -124,14 +124,14 @@ class Stasimo_Admin {
 		check_admin_referer( 'stasimo_reindex_' . $slug );
 		$m = Stasimo_Mounts::get( $slug );
 		if ( ! $m ) {
-			self::back( __( 'Unknown mount.', 'static-site-mount' ), 'error' );
+			self::back( __( 'Unknown mount.', 'stasimo-static-site-mount' ), 'error' );
 		}
 		$r = Stasimo_Indexer::reindex( $m );
 		if ( is_wp_error( $r ) ) {
 			self::back( $r->get_error_message(), 'error', array( 'mount' => $slug ) );
 		}
 		/* translators: %d pages */
-		self::back( sprintf( __( 'Indexed %d pages.', 'static-site-mount' ), $r['count'] ), 'success', array( 'mount' => $slug ) );
+		self::back( sprintf( __( 'Indexed %d pages.', 'stasimo-static-site-mount' ), $r['count'] ), 'success', array( 'mount' => $slug ) );
 	}
 
 	public static function toggle() {
@@ -140,13 +140,13 @@ class Stasimo_Admin {
 		check_admin_referer( 'stasimo_toggle_' . $slug );
 		$all = Stasimo_Mounts::all();
 		if ( ! isset( $all[ $slug ] ) ) {
-			self::back( __( 'Unknown mount.', 'static-site-mount' ), 'error' );
+			self::back( __( 'Unknown mount.', 'stasimo-static-site-mount' ), 'error' );
 		}
 		$now                    = ! ( isset( $all[ $slug ]['enabled'] ) ? $all[ $slug ]['enabled'] : true );
 		$all[ $slug ]['enabled'] = $now;
 		Stasimo_Mounts::save_all( $all );
 		$back = isset( $_GET['to'] ) && 'detail' === $_GET['to'] ? array( 'mount' => $slug ) : array();
-		self::back( $now ? __( 'Mount enabled. Its pages are live again.', 'static-site-mount' ) : __( 'Mount disabled. Its URLs now show a normal 404; the files stay on disk.', 'static-site-mount' ), 'success', $back );
+		self::back( $now ? __( 'Mount enabled. Its pages are live again.', 'stasimo-static-site-mount' ) : __( 'Mount disabled. Its URLs now show a normal 404; the files stay on disk.', 'stasimo-static-site-mount' ), 'success', $back );
 	}
 
 	public static function delete() {
@@ -157,7 +157,7 @@ class Stasimo_Admin {
 		unset( $all[ $slug ] );
 		Stasimo_Mounts::save_all( $all );
 		delete_option( Stasimo_Indexer::option_name( $slug ) );
-		self::back( __( 'Mount removed. Its files were left on disk.', 'static-site-mount' ) );
+		self::back( __( 'Mount removed. Its files were left on disk.', 'stasimo-static-site-mount' ) );
 	}
 
 	/* ------------------------------------------------------------ list view */
@@ -182,21 +182,21 @@ class Stasimo_Admin {
 		$mounts = Stasimo_Mounts::all();
 		?>
 		<div class="stasimo-head">
-			<h1><?php esc_html_e( 'Static Sites', 'static-site-mount' ); ?></h1>
-			<a class="page-title-action" href="<?php echo esc_url( self::url( array( 'action' => 'new' ) ) ); ?>"><?php esc_html_e( 'Add mount', 'static-site-mount' ); ?></a>
+			<h1><?php esc_html_e( 'Static Sites', 'stasimo-static-site-mount' ); ?></h1>
+			<a class="page-title-action" href="<?php echo esc_url( self::url( array( 'action' => 'new' ) ) ); ?>"><?php esc_html_e( 'Add mount', 'stasimo-static-site-mount' ); ?></a>
 		</div>
-		<p class="stasimo-sub"><?php esc_html_e( 'A mount publishes a folder of static HTML (a documentation site, a blog, a landing page) at a URL of this site, inside your theme.', 'static-site-mount' ); ?></p>
+		<p class="stasimo-sub"><?php esc_html_e( 'A mount publishes a folder of static HTML (a documentation site, a blog, a landing page) at a URL of this site, inside your theme.', 'stasimo-static-site-mount' ); ?></p>
 
 		<?php if ( ! $mounts ) : ?>
 			<div class="stasimo-empty">
-				<h2><?php esc_html_e( 'No mounts yet', 'static-site-mount' ); ?></h2>
+				<h2><?php esc_html_e( 'No mounts yet', 'stasimo-static-site-mount' ); ?></h2>
 				<ol>
-					<li><?php esc_html_e( 'Build your site with the mount\'s URL as its base path.', 'static-site-mount' ); ?></li>
-					<li><?php esc_html_e( 'Add a mount here and choose where it appears.', 'static-site-mount' ); ?></li>
-					<li><?php esc_html_e( 'Upload the build (CI, WP-CLI or files), and it is live.', 'static-site-mount' ); ?></li>
+					<li><?php esc_html_e( 'Build your site with the mount\'s URL as its base path.', 'stasimo-static-site-mount' ); ?></li>
+					<li><?php esc_html_e( 'Add a mount here and choose where it appears.', 'stasimo-static-site-mount' ); ?></li>
+					<li><?php esc_html_e( 'Upload the build (CI, WP-CLI or files), and it is live.', 'stasimo-static-site-mount' ); ?></li>
 				</ol><br>
-				<a class="button button-primary button-hero" href="<?php echo esc_url( self::url( array( 'action' => 'new' ) ) ); ?>"><?php esc_html_e( 'Add your first mount', 'static-site-mount' ); ?></a>
-				<a class="button button-hero" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::PAGE_ABOUT ) ); ?>"><?php esc_html_e( 'How it works', 'static-site-mount' ); ?></a>
+				<a class="button button-primary button-hero" href="<?php echo esc_url( self::url( array( 'action' => 'new' ) ) ); ?>"><?php esc_html_e( 'Add your first mount', 'stasimo-static-site-mount' ); ?></a>
+				<a class="button button-hero" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::PAGE_ABOUT ) ); ?>"><?php esc_html_e( 'How it works', 'stasimo-static-site-mount' ); ?></a>
 			</div>
 			<?php
 			return;
@@ -205,11 +205,11 @@ class Stasimo_Admin {
 		?>
 		<table class="widefat striped stasimo-table">
 			<thead><tr>
-				<th><?php esc_html_e( 'Mount', 'static-site-mount' ); ?></th>
-				<th><?php esc_html_e( 'Type', 'static-site-mount' ); ?></th>
-				<th><?php esc_html_e( 'Pages', 'static-site-mount' ); ?></th>
-				<th><?php esc_html_e( 'Last indexed', 'static-site-mount' ); ?></th>
-				<th><?php esc_html_e( 'Status', 'static-site-mount' ); ?></th>
+				<th><?php esc_html_e( 'Mount', 'stasimo-static-site-mount' ); ?></th>
+				<th><?php esc_html_e( 'Type', 'stasimo-static-site-mount' ); ?></th>
+				<th><?php esc_html_e( 'Pages', 'stasimo-static-site-mount' ); ?></th>
+				<th><?php esc_html_e( 'Last indexed', 'stasimo-static-site-mount' ); ?></th>
+				<th><?php esc_html_e( 'Status', 'stasimo-static-site-mount' ); ?></th>
 				<th></th>
 			</tr></thead>
 			<tbody>
@@ -225,12 +225,12 @@ class Stasimo_Admin {
 					</td>
 					<td><?php echo esc_html( isset( $presets[ $m['preset'] ] ) ? $presets[ $m['preset'] ]['label'] : $m['preset'] ); ?></td>
 					<td><?php echo esc_html( (string) count( $idx['pages'] ) ); ?></td>
-					<td><?php echo $idx['time'] ? esc_html( human_time_diff( $idx['time'] ) . ' ' . __( 'ago', 'static-site-mount' ) ) : '&ndash;'; ?></td>
+					<td><?php echo $idx['time'] ? esc_html( human_time_diff( $idx['time'] ) . ' ' . __( 'ago', 'stasimo-static-site-mount' ) ) : '&ndash;'; ?></td>
 					<td><?php echo wp_kses( self::badge( $m ), self::allowed_html() ); ?></td>
 					<td>
 						<div class="stasimo-actions">
-							<a class="button" href="<?php echo esc_url( self::url( array( 'mount' => $slug ) ) ); ?>"><?php esc_html_e( 'Details', 'static-site-mount' ); ?></a>
-							<a class="button" href="<?php echo esc_url( self::action_url( 'stasimo_toggle', $slug ) ); ?>"><?php echo $m['enabled'] ? esc_html__( 'Disable', 'static-site-mount' ) : esc_html__( 'Enable', 'static-site-mount' ); ?></a>
+							<a class="button" href="<?php echo esc_url( self::url( array( 'mount' => $slug ) ) ); ?>"><?php esc_html_e( 'Details', 'stasimo-static-site-mount' ); ?></a>
+							<a class="button" href="<?php echo esc_url( self::action_url( 'stasimo_toggle', $slug ) ); ?>"><?php echo $m['enabled'] ? esc_html__( 'Disable', 'stasimo-static-site-mount' ) : esc_html__( 'Enable', 'stasimo-static-site-mount' ); ?></a>
 						</div>
 					</td>
 				</tr>
@@ -276,9 +276,9 @@ class Stasimo_Admin {
 		$slug    = $m['slug'];
 		$n       = 'stasimo';
 		?>
-		<p class="stasimo-crumb"><a href="<?php echo esc_url( self::url() ); ?>">&larr; <?php esc_html_e( 'All mounts', 'static-site-mount' ); ?></a></p>
+		<p class="stasimo-crumb"><a href="<?php echo esc_url( self::url() ); ?>">&larr; <?php esc_html_e( 'All mounts', 'stasimo-static-site-mount' ); ?></a></p>
 		<div class="stasimo-head">
-			<h1><?php echo $is_new ? esc_html__( 'Add mount', 'static-site-mount' ) : esc_html( $slug ); ?></h1>
+			<h1><?php echo $is_new ? esc_html__( 'Add mount', 'stasimo-static-site-mount' ) : esc_html( $slug ); ?></h1>
 			<?php
 			if ( ! $is_new ) {
 				echo wp_kses( self::badge( $m ), self::allowed_html() );
@@ -296,27 +296,27 @@ class Stasimo_Admin {
 				<?php wp_nonce_field( 'stasimo_save' ); ?>
 
 				<div class="stasimo-card">
-					<h2><?php esc_html_e( 'Where it lives', 'static-site-mount' ); ?></h2>
+					<h2><?php esc_html_e( 'Where it lives', 'stasimo-static-site-mount' ); ?></h2>
 					<table class="form-table" role="presentation">
 						<?php
 						self::field_row(
-							__( 'Name', 'static-site-mount' ),
-							__( 'A short name, also the default folder name. Cannot be changed later.', 'static-site-mount' ),
+							__( 'Name', 'stasimo-static-site-mount' ),
+							__( 'A short name, also the default folder name. Cannot be changed later.', 'stasimo-static-site-mount' ),
 							'<input type="text" class="regular-text" name="' . esc_attr( $n ) . '[slug]" value="' . esc_attr( $slug ) . '" placeholder="my-project" ' . ( $is_new ? '' : 'readonly' ) . '>'
 						);
 						self::field_row(
-							__( 'URL prefix', 'static-site-mount' ),
-							__( 'Build your site with this as its base URL, for example Docusaurus baseUrl "/docs/my-project/" or MkDocs site_url ending in /docs/my-project/.', 'static-site-mount' ),
+							__( 'URL prefix', 'stasimo-static-site-mount' ),
+							__( 'Build your site with this as its base URL, for example Docusaurus baseUrl "/docs/my-project/" or MkDocs site_url ending in /docs/my-project/.', 'stasimo-static-site-mount' ),
 							'<div class="stasimo-prefix"><code>' . esc_html( home_url( '/' ) ) . '</code><input type="text" class="regular-text" name="' . esc_attr( $n ) . '[prefix]" value="' . esc_attr( $m['prefix'] ) . '" placeholder="docs/my-project"></div>'
 						);
 						$opts = '';
 						foreach ( $presets as $key => $p ) {
 							$opts .= '<option value="' . esc_attr( $key ) . '" ' . selected( $m['preset'], $key, false ) . '>' . esc_html( $p['label'] ) . '</option>';
 						}
-						self::field_row( __( 'Type', 'static-site-mount' ), __( 'Which generator built the site. It decides which parts (navbar, footer) are replaced by your theme.', 'static-site-mount' ), '<select name="' . esc_attr( $n ) . '[preset]">' . $opts . '</select>' );
+						self::field_row( __( 'Type', 'stasimo-static-site-mount' ), __( 'Which generator built the site. It decides which parts (navbar, footer) are replaced by your theme.', 'stasimo-static-site-mount' ), '<select name="' . esc_attr( $n ) . '[preset]">' . $opts . '</select>' );
 						self::field_row(
-							__( 'Folder', 'static-site-mount' ),
-							sprintf( /* translators: %s default folder */ __( 'Optional. Empty means %s', 'static-site-mount' ), Stasimo_Mounts::base_dir() . '/' . ( $slug ? $slug : '<name>' ) ),
+							__( 'Folder', 'stasimo-static-site-mount' ),
+							sprintf( /* translators: %s default folder */ __( 'Optional. Empty means %s', 'stasimo-static-site-mount' ), Stasimo_Mounts::base_dir() . '/' . ( $slug ? $slug : '<name>' ) ),
 							'<input type="text" class="large-text" name="' . esc_attr( $n ) . '[dir]" value="' . esc_attr( $m['dir'] ) . '">'
 						);
 						?>
@@ -324,32 +324,32 @@ class Stasimo_Admin {
 				</div>
 
 				<div class="stasimo-card">
-					<h2><?php esc_html_e( 'Look and feel', 'static-site-mount' ); ?></h2>
+					<h2><?php esc_html_e( 'Look and feel', 'stasimo-static-site-mount' ); ?></h2>
 					<table class="form-table" role="presentation">
 						<?php
-						self::field_row( __( 'Space for a fixed header (px)', 'static-site-mount' ), __( 'Only needed when your theme\'s header stays fixed at the top. Pushes the content down by this much.', 'static-site-mount' ), '<input type="number" min="0" max="400" name="' . esc_attr( $n ) . '[header_offset]" value="' . esc_attr( $m['header_offset'] ) . '" class="small-text">' );
-						self::field_row( __( 'Light/dark key', 'static-site-mount' ), __( 'localStorage key where your theme stores the light/dark choice (for example wenisch-theme). The mounted site then follows it.', 'static-site-mount' ), '<input type="text" class="regular-text" name="' . esc_attr( $n ) . '[host_theme_key]" value="' . esc_attr( $m['host_theme_key'] ) . '" placeholder="my-theme-mode">' );
-						self::field_row( __( 'Hide elements', 'static-site-mount' ), __( 'CSS selectors hidden in addition to the type\'s defaults. Safe for JavaScript apps.', 'static-site-mount' ), '<input type="text" class="large-text" name="' . esc_attr( $n ) . '[hide]" value="' . esc_attr( $m['hide'] ) . '" placeholder=".site-header, .cookie-note">' );
-						self::field_row( __( 'Remove elements', 'static-site-mount' ), __( 'Taken out of the HTML on the server. Supports tag, #id, .class and spaces. For sites without a JavaScript app.', 'static-site-mount' ), '<input type="text" class="large-text" name="' . esc_attr( $n ) . '[remove]" value="' . esc_attr( $m['remove'] ) . '" placeholder="header.site-header, #footer">' );
+						self::field_row( __( 'Space for a fixed header (px)', 'stasimo-static-site-mount' ), __( 'Only needed when your theme\'s header stays fixed at the top. Pushes the content down by this much.', 'stasimo-static-site-mount' ), '<input type="number" min="0" max="400" name="' . esc_attr( $n ) . '[header_offset]" value="' . esc_attr( $m['header_offset'] ) . '" class="small-text">' );
+						self::field_row( __( 'Light/dark key', 'stasimo-static-site-mount' ), __( 'localStorage key where your theme stores the light/dark choice (for example wenisch-theme). The mounted site then follows it.', 'stasimo-static-site-mount' ), '<input type="text" class="regular-text" name="' . esc_attr( $n ) . '[host_theme_key]" value="' . esc_attr( $m['host_theme_key'] ) . '" placeholder="my-theme-mode">' );
+						self::field_row( __( 'Hide elements', 'stasimo-static-site-mount' ), __( 'CSS selectors hidden in addition to the type\'s defaults. Safe for JavaScript apps.', 'stasimo-static-site-mount' ), '<input type="text" class="large-text" name="' . esc_attr( $n ) . '[hide]" value="' . esc_attr( $m['hide'] ) . '" placeholder=".site-header, .cookie-note">' );
+						self::field_row( __( 'Remove elements', 'stasimo-static-site-mount' ), __( 'Taken out of the HTML on the server. Supports tag, #id, .class and spaces. For sites without a JavaScript app.', 'stasimo-static-site-mount' ), '<input type="text" class="large-text" name="' . esc_attr( $n ) . '[remove]" value="' . esc_attr( $m['remove'] ) . '" placeholder="header.site-header, #footer">' );
 						?>
 					</table>
 				</div>
 
 				<div class="stasimo-card">
-					<h2><?php esc_html_e( 'Search engines', 'static-site-mount' ); ?></h2>
+					<h2><?php esc_html_e( 'Search engines', 'stasimo-static-site-mount' ); ?></h2>
 					<table class="form-table" role="presentation">
 						<?php
-						self::field_row( __( 'Title suffix', 'static-site-mount' ), __( 'Appended to every page title, for example " | Docs".', 'static-site-mount' ), '<input type="text" class="regular-text" name="' . esc_attr( $n ) . '[title_suffix]" value="' . esc_attr( $m['title_suffix'] ) . '">' );
+						self::field_row( __( 'Title suffix', 'stasimo-static-site-mount' ), __( 'Appended to every page title, for example " | Docs".', 'stasimo-static-site-mount' ), '<input type="text" class="regular-text" name="' . esc_attr( $n ) . '[title_suffix]" value="' . esc_attr( $m['title_suffix'] ) . '">' );
 						self::field_row(
-							__( 'Indexing', 'static-site-mount' ),
+							__( 'Indexing', 'stasimo-static-site-mount' ),
 							'',
-							'<label><input type="checkbox" name="' . esc_attr( $n ) . '[sitemap]" value="1" ' . checked( $m['sitemap'], true, false ) . '> ' . esc_html__( 'List the pages in the sitemap', 'static-site-mount' ) . '</label><br>'
-							. '<label><input type="checkbox" name="' . esc_attr( $n ) . '[noindex]" value="1" ' . checked( $m['noindex'], true, false ) . '> ' . esc_html__( 'Ask search engines not to index this mount', 'static-site-mount' ) . '</label>'
+							'<label><input type="checkbox" name="' . esc_attr( $n ) . '[sitemap]" value="1" ' . checked( $m['sitemap'], true, false ) . '> ' . esc_html__( 'List the pages in the sitemap', 'stasimo-static-site-mount' ) . '</label><br>'
+							. '<label><input type="checkbox" name="' . esc_attr( $n ) . '[noindex]" value="1" ' . checked( $m['noindex'], true, false ) . '> ' . esc_html__( 'Ask search engines not to index this mount', 'stasimo-static-site-mount' ) . '</label>'
 						);
 						?>
 					</table>
 				</div>
-				<?php submit_button( $is_new ? __( 'Create mount', 'static-site-mount' ) : __( 'Save changes', 'static-site-mount' ), 'primary', 'submit', false ); ?>
+				<?php submit_button( $is_new ? __( 'Create mount', 'stasimo-static-site-mount' ) : __( 'Save changes', 'stasimo-static-site-mount' ), 'primary', 'submit', false ); ?>
 			</form>
 
 			<?php
@@ -358,11 +358,11 @@ class Stasimo_Admin {
 			} else {
 				?>
 				<div class="stasimo-card">
-					<h2><?php esc_html_e( 'Next steps', 'static-site-mount' ); ?></h2>
+					<h2><?php esc_html_e( 'Next steps', 'stasimo-static-site-mount' ); ?></h2>
 					<ol class="stasimo-steps">
-						<li><?php esc_html_e( 'Choose a name and the URL prefix.', 'static-site-mount' ); ?></li>
-						<li><?php esc_html_e( 'Create the mount. Its page shows ready-made deploy commands.', 'static-site-mount' ); ?></li>
-						<li><?php esc_html_e( 'Upload your build and open the URL.', 'static-site-mount' ); ?></li>
+						<li><?php esc_html_e( 'Choose a name and the URL prefix.', 'stasimo-static-site-mount' ); ?></li>
+						<li><?php esc_html_e( 'Create the mount. Its page shows ready-made deploy commands.', 'stasimo-static-site-mount' ); ?></li>
+						<li><?php esc_html_e( 'Upload your build and open the URL.', 'stasimo-static-site-mount' ); ?></li>
 					</ol>
 				</div>
 				<?php
@@ -377,38 +377,38 @@ class Stasimo_Admin {
 		$idx  = Stasimo_Indexer::get( $slug );
 		$dir  = Stasimo_Mounts::dir( $m );
 		$curl = "cd build && zip -qr ../build.zip . && cd ..\n"
-			. "curl -fsS -u \"\$WP_USER:\$WP_APP_PASSWORD\" \\\n  -F \"file=@build.zip\" \\\n  \"" . rest_url( 'static-site-mount/v1/mounts/' . $slug . '/deploy' ) . '"';
+			. "curl -fsS -u \"\$WP_USER:\$WP_APP_PASSWORD\" \\\n  -F \"file=@build.zip\" \\\n  \"" . rest_url( 'stasimo/v1/mounts/' . $slug . '/deploy' ) . '"';
 		?>
 		<div>
 			<div class="stasimo-card">
-				<h2><?php esc_html_e( 'Status', 'static-site-mount' ); ?></h2>
+				<h2><?php esc_html_e( 'Status', 'stasimo-static-site-mount' ); ?></h2>
 				<dl class="stasimo-kv">
-					<dt><?php esc_html_e( 'Pages', 'static-site-mount' ); ?></dt><dd><?php echo esc_html( (string) count( $idx['pages'] ) ); ?></dd>
-					<dt><?php esc_html_e( 'Last indexed', 'static-site-mount' ); ?></dt><dd><?php echo $idx['time'] ? esc_html( human_time_diff( $idx['time'] ) . ' ' . __( 'ago', 'static-site-mount' ) ) : '&ndash;'; ?></dd>
-					<dt><?php esc_html_e( 'Folder', 'static-site-mount' ); ?></dt><dd><code><?php echo esc_html( $dir ); ?></code><?php echo is_dir( $dir ) ? '' : ' <span class="stasimo-badge stasimo-badge--warn">' . esc_html__( 'missing', 'static-site-mount' ) . '</span>'; ?></dd>
-					<dt><?php esc_html_e( 'Sitemap', 'static-site-mount' ); ?></dt><dd><?php echo $m['sitemap'] && ! $m['noindex'] ? esc_html__( 'included', 'static-site-mount' ) : esc_html__( 'not included', 'static-site-mount' ); ?></dd>
+					<dt><?php esc_html_e( 'Pages', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo esc_html( (string) count( $idx['pages'] ) ); ?></dd>
+					<dt><?php esc_html_e( 'Last indexed', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo $idx['time'] ? esc_html( human_time_diff( $idx['time'] ) . ' ' . __( 'ago', 'stasimo-static-site-mount' ) ) : '&ndash;'; ?></dd>
+					<dt><?php esc_html_e( 'Folder', 'stasimo-static-site-mount' ); ?></dt><dd><code><?php echo esc_html( $dir ); ?></code><?php echo is_dir( $dir ) ? '' : ' <span class="stasimo-badge stasimo-badge--warn">' . esc_html__( 'missing', 'stasimo-static-site-mount' ) . '</span>'; ?></dd>
+					<dt><?php esc_html_e( 'Sitemap', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo $m['sitemap'] && ! $m['noindex'] ? esc_html__( 'included', 'stasimo-static-site-mount' ) : esc_html__( 'not included', 'stasimo-static-site-mount' ); ?></dd>
 				</dl>
 				<div class="stasimo-buttons">
-					<a class="button" href="<?php echo esc_url( Stasimo_Mounts::url( $m ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View site', 'static-site-mount' ); ?></a>
-					<a class="button" href="<?php echo esc_url( self::action_url( 'stasimo_reindex', $slug ) ); ?>"><?php esc_html_e( 'Re-index', 'static-site-mount' ); ?></a>
-					<a class="button" href="<?php echo esc_url( add_query_arg( 'to', 'detail', self::action_url( 'stasimo_toggle', $slug ) ) ); ?>"><?php echo $m['enabled'] ? esc_html__( 'Disable', 'static-site-mount' ) : esc_html__( 'Enable', 'static-site-mount' ); ?></a>
+					<a class="button" href="<?php echo esc_url( Stasimo_Mounts::url( $m ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View site', 'stasimo-static-site-mount' ); ?></a>
+					<a class="button" href="<?php echo esc_url( self::action_url( 'stasimo_reindex', $slug ) ); ?>"><?php esc_html_e( 'Re-index', 'stasimo-static-site-mount' ); ?></a>
+					<a class="button" href="<?php echo esc_url( add_query_arg( 'to', 'detail', self::action_url( 'stasimo_toggle', $slug ) ) ); ?>"><?php echo $m['enabled'] ? esc_html__( 'Disable', 'stasimo-static-site-mount' ) : esc_html__( 'Enable', 'stasimo-static-site-mount' ); ?></a>
 				</div>
 			</div>
 
 			<div class="stasimo-card">
-				<h2><?php esc_html_e( 'Deploy', 'static-site-mount' ); ?></h2>
-				<p class="description"><?php esc_html_e( 'From CI, with an Application Password (Users > Profile). The folder is replaced atomically and re-indexed.', 'static-site-mount' ); ?></p>
+				<h2><?php esc_html_e( 'Deploy', 'stasimo-static-site-mount' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'From CI, with an Application Password (Users > Profile). The folder is replaced atomically and re-indexed.', 'stasimo-static-site-mount' ); ?></p>
 				<pre class="stasimo-code"><?php echo esc_html( $curl ); ?></pre>
-				<p class="description"><?php echo esc_html( 'wp static-site-mount deploy ' . $slug . ' /path/to/build' ); ?></p>
+				<p class="description"><?php echo esc_html( 'wp stasimo deploy ' . $slug . ' /path/to/build' ); ?></p>
 			</div>
 
 			<div class="stasimo-card">
-				<h2><?php esc_html_e( 'Pages', 'static-site-mount' ); ?></h2>
+				<h2><?php esc_html_e( 'Pages', 'stasimo-static-site-mount' ); ?></h2>
 				<?php if ( ! $idx['pages'] ) : ?>
-					<p class="description"><?php esc_html_e( 'Nothing indexed yet. Deploy a build or press Re-index.', 'static-site-mount' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Nothing indexed yet. Deploy a build or press Re-index.', 'stasimo-static-site-mount' ); ?></p>
 				<?php else : ?>
 					<table class="stasimo-pages">
-						<thead><tr><th><?php esc_html_e( 'Path', 'static-site-mount' ); ?></th><th><?php esc_html_e( 'Title', 'static-site-mount' ); ?></th></tr></thead>
+						<thead><tr><th><?php esc_html_e( 'Path', 'stasimo-static-site-mount' ); ?></th><th><?php esc_html_e( 'Title', 'stasimo-static-site-mount' ); ?></th></tr></thead>
 						<tbody>
 						<?php
 						$shown = 0;
@@ -422,15 +422,15 @@ class Stasimo_Admin {
 						</tbody>
 					</table>
 					<?php if ( count( $idx['pages'] ) > 25 ) : ?>
-						<p class="description"><?php echo esc_html( sprintf( /* translators: %d number */ __( '… and %d more.', 'static-site-mount' ), count( $idx['pages'] ) - 25 ) ); ?></p>
+						<p class="description"><?php echo esc_html( sprintf( /* translators: %d number */ __( '… and %d more.', 'stasimo-static-site-mount' ), count( $idx['pages'] ) - 25 ) ); ?></p>
 					<?php endif; ?>
 				<?php endif; ?>
 			</div>
 
 			<div class="stasimo-card stasimo-danger">
-				<h2><?php esc_html_e( 'Remove', 'static-site-mount' ); ?></h2>
-				<p class="description"><?php esc_html_e( 'Removes the mount from this list and stops serving it. The files stay on disk.', 'static-site-mount' ); ?></p>
-				<a class="button stasimo-delete" href="<?php echo esc_url( self::action_url( 'stasimo_delete', $slug ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Remove this mount? Its files stay on disk.', 'static-site-mount' ) ); ?>')"><?php esc_html_e( 'Remove mount', 'static-site-mount' ); ?></a>
+				<h2><?php esc_html_e( 'Remove', 'stasimo-static-site-mount' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'Removes the mount from this list and stops serving it. The files stay on disk.', 'stasimo-static-site-mount' ); ?></p>
+				<a class="button stasimo-delete" href="<?php echo esc_url( self::action_url( 'stasimo_delete', $slug ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Remove this mount? Its files stay on disk.', 'stasimo-static-site-mount' ) ); ?>')"><?php esc_html_e( 'Remove mount', 'stasimo-static-site-mount' ); ?></a>
 			</div>
 		</div>
 		<?php
@@ -453,67 +453,67 @@ class Stasimo_Admin {
 		?>
 		<div class="wrap stasimo-wrap stasimo-about">
 			<div class="stasimo-head">
-				<h1><?php esc_html_e( 'About Static Site Mount', 'static-site-mount' ); ?></h1>
+				<h1><?php esc_html_e( 'About Stasimo', 'stasimo-static-site-mount' ); ?></h1>
 				<span class="stasimo-badge stasimo-badge--info"><?php echo esc_html( 'v' . STASIMO_VERSION ); ?></span>
 			</div>
-			<p class="stasimo-sub"><?php esc_html_e( 'Publish a built static site (Docusaurus, MkDocs, Hugo, plain HTML) at a URL of this WordPress site, inside your theme\'s header and footer, with SEO tags and sitemap entries, and deploy it from CI with one request.', 'static-site-mount' ); ?></p>
+			<p class="stasimo-sub"><?php esc_html_e( 'Publish a built static site (Docusaurus, MkDocs, Hugo, plain HTML) at a URL of this WordPress site, inside your theme\'s header and footer, with SEO tags and sitemap entries, and deploy it from CI with one request.', 'stasimo-static-site-mount' ); ?></p>
 
-			<h2><?php esc_html_e( 'How it works', 'static-site-mount' ); ?></h2>
+			<h2><?php esc_html_e( 'How it works', 'stasimo-static-site-mount' ); ?></h2>
 			<ol class="stasimo-steps">
-				<li><strong><?php esc_html_e( 'Build with the right base URL.', 'static-site-mount' ); ?></strong> <?php esc_html_e( 'JavaScript apps embed their base path, so build the site for the URL you will mount it at.', 'static-site-mount' ); ?></li>
-				<li><strong><?php esc_html_e( 'Add a mount.', 'static-site-mount' ); ?></strong> <?php esc_html_e( 'Choose a name, the URL prefix and the generator type.', 'static-site-mount' ); ?></li>
-				<li><strong><?php esc_html_e( 'Deploy.', 'static-site-mount' ); ?></strong> <?php esc_html_e( 'Upload a zip through the REST API or WP-CLI. The folder is replaced atomically and every page is indexed.', 'static-site-mount' ); ?></li>
-				<li><strong><?php esc_html_e( 'Visitors get one site.', 'static-site-mount' ); ?></strong> <?php esc_html_e( 'Pages are served through WordPress, wrapped in your theme\'s header and footer, with titles, descriptions, canonical URLs and a sitemap written by the plugin.', 'static-site-mount' ); ?></li>
+				<li><strong><?php esc_html_e( 'Build with the right base URL.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'JavaScript apps embed their base path, so build the site for the URL you will mount it at.', 'stasimo-static-site-mount' ); ?></li>
+				<li><strong><?php esc_html_e( 'Add a mount.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'Choose a name, the URL prefix and the generator type.', 'stasimo-static-site-mount' ); ?></li>
+				<li><strong><?php esc_html_e( 'Deploy.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'Upload a zip through the REST API or WP-CLI. The folder is replaced atomically and every page is indexed.', 'stasimo-static-site-mount' ); ?></li>
+				<li><strong><?php esc_html_e( 'Visitors get one site.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'Pages are served through WordPress, wrapped in your theme\'s header and footer, with titles, descriptions, canonical URLs and a sitemap written by the plugin.', 'stasimo-static-site-mount' ); ?></li>
 			</ol>
 
-			<h2><?php esc_html_e( 'Environment check', 'static-site-mount' ); ?></h2>
+			<h2><?php esc_html_e( 'Environment check', 'stasimo-static-site-mount' ); ?></h2>
 			<table class="widefat striped">
 				<tbody>
 				<?php
-				self::check_row( 'PHP ' . PHP_VERSION, version_compare( PHP_VERSION, '7.4', '>=' ), __( 'Requires PHP 7.4 or newer.', 'static-site-mount' ) );
-				self::check_row( __( 'Zip support', 'static-site-mount' ), class_exists( 'ZipArchive' ), __( 'Needed to deploy zip files. Without it you can still copy files and press Re-index.', 'static-site-mount' ) );
-				self::check_row( __( 'Block theme', 'static-site-mount' ), $block, $block ? __( 'The theme\'s header and footer wrap mounted pages.', 'static-site-mount' ) : __( 'Classic theme: pages are served without the header/footer wrapper. Use the stasimo_header_html / stasimo_footer_html filters.', 'static-site-mount' ) );
-				self::check_row( __( 'Pretty permalinks', 'static-site-mount' ), $pretty, $pretty ? __( 'Enabled.', 'static-site-mount' ) : __( 'Enable them under Settings > Permalinks, mounts need them.', 'static-site-mount' ) );
-				self::check_row( __( 'Storage folder', 'static-site-mount' ), $writable, $base );
-				self::check_row( __( 'Upload limit', 'static-site-mount' ), null, sprintf( /* translators: 1: upload_max_filesize 2: post_max_size */ __( 'upload_max_filesize %1$s, post_max_size %2$s. Zips larger than this cannot be deployed over REST.', 'static-site-mount' ), ini_get( 'upload_max_filesize' ), ini_get( 'post_max_size' ) ) );
-				self::check_row( __( 'SEO plugin', 'static-site-mount' ), null, $yoast ? __( 'Yoast SEO detected: its tags are replaced on mounted pages and the sitemap is added to its index.', 'static-site-mount' ) : __( 'None detected. The plugin writes its own tags and sitemap.', 'static-site-mount' ) );
+				self::check_row( 'PHP ' . PHP_VERSION, version_compare( PHP_VERSION, '7.4', '>=' ), __( 'Requires PHP 7.4 or newer.', 'stasimo-static-site-mount' ) );
+				self::check_row( __( 'Zip support', 'stasimo-static-site-mount' ), class_exists( 'ZipArchive' ), __( 'Needed to deploy zip files. Without it you can still copy files and press Re-index.', 'stasimo-static-site-mount' ) );
+				self::check_row( __( 'Block theme', 'stasimo-static-site-mount' ), $block, $block ? __( 'The theme\'s header and footer wrap mounted pages.', 'stasimo-static-site-mount' ) : __( 'Classic theme: pages are served without the header/footer wrapper. Use the stasimo_header_html / stasimo_footer_html filters.', 'stasimo-static-site-mount' ) );
+				self::check_row( __( 'Pretty permalinks', 'stasimo-static-site-mount' ), $pretty, $pretty ? __( 'Enabled.', 'stasimo-static-site-mount' ) : __( 'Enable them under Settings > Permalinks, mounts need them.', 'stasimo-static-site-mount' ) );
+				self::check_row( __( 'Storage folder', 'stasimo-static-site-mount' ), $writable, $base );
+				self::check_row( __( 'Upload limit', 'stasimo-static-site-mount' ), null, sprintf( /* translators: 1: upload_max_filesize 2: post_max_size */ __( 'upload_max_filesize %1$s, post_max_size %2$s. Zips larger than this cannot be deployed over REST.', 'stasimo-static-site-mount' ), ini_get( 'upload_max_filesize' ), ini_get( 'post_max_size' ) ) );
+				self::check_row( __( 'SEO plugin', 'stasimo-static-site-mount' ), null, $yoast ? __( 'Yoast SEO detected: its tags are replaced on mounted pages and the sitemap is added to its index.', 'stasimo-static-site-mount' ) : __( 'None detected. The plugin writes its own tags and sitemap.', 'stasimo-static-site-mount' ) );
 				?>
 				</tbody>
 			</table>
 
-			<h2><?php esc_html_e( 'REST API (for CI)', 'static-site-mount' ); ?></h2>
-			<p><?php esc_html_e( 'Authenticate with an Application Password of an administrator (Users > Profile).', 'static-site-mount' ); ?></p>
+			<h2><?php esc_html_e( 'REST API (for CI)', 'stasimo-static-site-mount' ); ?></h2>
+			<p><?php esc_html_e( 'Authenticate with an Application Password of an administrator (Users > Profile).', 'stasimo-static-site-mount' ); ?></p>
 			<table class="widefat striped">
-				<thead><tr><th><?php esc_html_e( 'Request', 'static-site-mount' ); ?></th><th><?php esc_html_e( 'Purpose', 'static-site-mount' ); ?></th></tr></thead>
+				<thead><tr><th><?php esc_html_e( 'Request', 'stasimo-static-site-mount' ); ?></th><th><?php esc_html_e( 'Purpose', 'stasimo-static-site-mount' ); ?></th></tr></thead>
 				<tbody>
-					<tr><td><code>GET /wp-json/static-site-mount/v1/mounts</code></td><td><?php esc_html_e( 'List mounts, page counts and last index time.', 'static-site-mount' ); ?></td></tr>
-					<tr><td><code>PUT /wp-json/static-site-mount/v1/mounts/&lt;name&gt;</code></td><td><?php esc_html_e( 'Create or update a mount (JSON: prefix, preset, header_offset, host_theme_key, enabled).', 'static-site-mount' ); ?></td></tr>
-					<tr><td><code>POST /wp-json/static-site-mount/v1/mounts/&lt;name&gt;/deploy</code></td><td><?php esc_html_e( 'Replace the folder with an uploaded zip and re-index. Send multipart field "file".', 'static-site-mount' ); ?></td></tr>
-					<tr><td><code>POST /wp-json/static-site-mount/v1/mounts/&lt;name&gt;/reindex</code></td><td><?php esc_html_e( 'Re-index after files changed by other means.', 'static-site-mount' ); ?></td></tr>
+					<tr><td><code>GET /wp-json/stasimo/v1/mounts</code></td><td><?php esc_html_e( 'List mounts, page counts and last index time.', 'stasimo-static-site-mount' ); ?></td></tr>
+					<tr><td><code>PUT /wp-json/stasimo/v1/mounts/&lt;name&gt;</code></td><td><?php esc_html_e( 'Create or update a mount (JSON: prefix, preset, header_offset, host_theme_key, enabled).', 'stasimo-static-site-mount' ); ?></td></tr>
+					<tr><td><code>POST /wp-json/stasimo/v1/mounts/&lt;name&gt;/deploy</code></td><td><?php esc_html_e( 'Replace the folder with an uploaded zip and re-index. Send multipart field "file".', 'stasimo-static-site-mount' ); ?></td></tr>
+					<tr><td><code>POST /wp-json/stasimo/v1/mounts/&lt;name&gt;/reindex</code></td><td><?php esc_html_e( 'Re-index after files changed by other means.', 'stasimo-static-site-mount' ); ?></td></tr>
 				</tbody>
 			</table>
 
 			<h2>WP-CLI</h2>
-			<pre class="stasimo-code">wp static-site-mount list
-wp static-site-mount add &lt;name&gt; --prefix=docs/my-project --preset=docusaurus
-wp static-site-mount deploy &lt;name&gt; build.zip   # or a folder
-wp static-site-mount reindex [&lt;name&gt;]</pre>
+			<pre class="stasimo-code">wp stasimo list
+wp stasimo add &lt;name&gt; --prefix=docs/my-project --preset=docusaurus
+wp stasimo deploy &lt;name&gt; build.zip   # or a folder
+wp stasimo reindex [&lt;name&gt;]</pre>
 
-			<h2><?php esc_html_e( 'Good to know', 'static-site-mount' ); ?></h2>
+			<h2><?php esc_html_e( 'Good to know', 'stasimo-static-site-mount' ); ?></h2>
 			<ul style="list-style:disc;padding-left:22px">
-				<li><?php esc_html_e( 'Only allow-listed file types are served (no PHP, no dotfiles), and archives are checked for unsafe paths. A refused deploy leaves the live site untouched.', 'static-site-mount' ); ?></li>
-				<li><?php esc_html_e( 'The generator\'s CSS and your theme\'s CSS share one page, so check headings and buttons after the first deploy.', 'static-site-mount' ); ?></li>
-				<li><?php esc_html_e( 'Disabling a mount keeps its files and settings; its URLs show a normal 404.', 'static-site-mount' ); ?></li>
-				<li><?php esc_html_e( 'Sitemap of all mounted pages:', 'static-site-mount' ); ?> <a href="<?php echo esc_url( Stasimo_Sitemap::url() ); ?>" target="_blank" rel="noopener"><?php echo esc_html( Stasimo_Sitemap::url() ); ?></a></li>
+				<li><?php esc_html_e( 'Only allow-listed file types are served (no PHP, no dotfiles), and archives are checked for unsafe paths. A refused deploy leaves the live site untouched.', 'stasimo-static-site-mount' ); ?></li>
+				<li><?php esc_html_e( 'The generator\'s CSS and your theme\'s CSS share one page, so check headings and buttons after the first deploy.', 'stasimo-static-site-mount' ); ?></li>
+				<li><?php esc_html_e( 'Disabling a mount keeps its files and settings; its URLs show a normal 404.', 'stasimo-static-site-mount' ); ?></li>
+				<li><?php esc_html_e( 'Sitemap of all mounted pages:', 'stasimo-static-site-mount' ); ?> <a href="<?php echo esc_url( Stasimo_Sitemap::url() ); ?>" target="_blank" rel="noopener"><?php echo esc_html( Stasimo_Sitemap::url() ); ?></a></li>
 			</ul>
 
-			<h2><?php esc_html_e( 'Developers', 'static-site-mount' ); ?></h2>
-			<p><?php esc_html_e( 'Filters:', 'static-site-mount' ); ?> <code>stasimo_presets</code>, <code>stasimo_title</code>, <code>stasimo_description</code>, <code>stasimo_header_html</code>, <code>stasimo_footer_html</code>, <code>stasimo_host_css</code>, <code>stasimo_mime_types</code>, <code>stasimo_base_dir</code>. <?php esc_html_e( 'Action:', 'static-site-mount' ); ?> <code>stasimo_deployed</code>.</p>
+			<h2><?php esc_html_e( 'Developers', 'stasimo-static-site-mount' ); ?></h2>
+			<p><?php esc_html_e( 'Filters:', 'stasimo-static-site-mount' ); ?> <code>stasimo_presets</code>, <code>stasimo_title</code>, <code>stasimo_description</code>, <code>stasimo_header_html</code>, <code>stasimo_footer_html</code>, <code>stasimo_host_css</code>, <code>stasimo_mime_types</code>, <code>stasimo_base_dir</code>. <?php esc_html_e( 'Action:', 'stasimo-static-site-mount' ); ?> <code>stasimo_deployed</code>.</p>
 
-			<h2><?php esc_html_e( 'Project', 'static-site-mount' ); ?></h2>
+			<h2><?php esc_html_e( 'Project', 'stasimo-static-site-mount' ); ?></h2>
 			<p>
-				<a href="https://github.com/wenisch-tech/wordpress-static-site-mount" target="_blank" rel="noopener"><?php esc_html_e( 'Source code and documentation on GitHub', 'static-site-mount' ); ?></a><br>
-				<?php esc_html_e( 'Licensed under GPL-2.0-or-later. Made by Jean-Fabian Wenisch.', 'static-site-mount' ); ?>
+				<a href="https://github.com/wenisch-tech/wordpress-static-site-mount" target="_blank" rel="noopener"><?php esc_html_e( 'Source code and documentation on GitHub', 'stasimo-static-site-mount' ); ?></a><br>
+				<?php esc_html_e( 'Licensed under GPL-2.0-or-later. Made by Jean-Fabian Wenisch.', 'stasimo-static-site-mount' ); ?>
 			</p>
 		</div>
 		<?php

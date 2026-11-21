@@ -1,4 +1,4 @@
-=== Static Site Mount ===
+=== Stasimo - Static Site Mount ===
 Contributors: jfwenisch
 Tags: static site, documentation, docusaurus, mkdocs, seo
 Requires at least: 5.9
@@ -12,7 +12,7 @@ Serve a built static site (Docusaurus, MkDocs, Hugo, plain HTML) inside your the
 
 == Description ==
 
-Static Site Mount publishes a folder of static HTML at a URL of your WordPress site, for example documentation at `/docs/my-project/`. Pages are wrapped in your block theme's header and footer, so the menu, branding and light/dark switch stay consistent.
+Stasimo publishes a folder of static HTML at a URL of your WordPress site, for example documentation at `/docs/my-project/`. Pages are wrapped in your block theme's header and footer, so the menu, branding and light/dark switch stay consistent.
 
 * Mount a folder at a URL prefix; assets are served with correct MIME types, ETag and long-lived caching for fingerprinted files.
 * The generator's own navbar and footer are hidden (JavaScript apps keep working) or removed (plain HTML).
@@ -45,7 +45,7 @@ A mounted build is raw HTML and JavaScript served from your own site, so deployi
 No. It makes no external requests and collects no personal data.
 
 = How do I deploy from GitHub Actions? =
-Create an Application Password and POST the zipped build to `/wp-json/static-site-mount/v1/mounts/<name>/deploy`. An example workflow is in the plugin's `examples` folder.
+Create an Application Password and POST the zipped build to `/wp-json/stasimo/v1/mounts/<name>/deploy`. An example workflow is in the plugin's `examples` folder.
 
 == Screenshots ==
 
@@ -61,6 +61,7 @@ The complete source, the logo and banner generators and the Docker test setup ar
 == Changelog ==
 
 = 0.3.0 =
+* Renamed to Stasimo - Static Site Mount. The REST path (stasimo/v1) and the WP-CLI command stay the same.
 * File handling uses WP_Filesystem and core helpers; archives with forged size headers are refused; the attributes of the uploaded html and body tags are escaped.
 * Hardening for the plugin review: input sanitizing, output filtering in the admin, inline scripts and styles through the WordPress APIs.
 * Mounts are stored in the uploads folder (uploads/static-sites). An existing wp-content/static-sites folder keeps being used.

@@ -20,7 +20,7 @@ class Stasimo_Rest {
 
 	public static function routes() {
 		register_rest_route(
-			'static-site-mount/v1',
+			'stasimo/v1',
 			'/mounts',
 			array(
 				'methods'             => 'GET',
@@ -45,7 +45,7 @@ class Stasimo_Rest {
 		);
 
 		register_rest_route(
-			'static-site-mount/v1',
+			'stasimo/v1',
 			'/mounts/(?P<slug>[a-z0-9-]+)',
 			array(
 				'methods'             => 'PUT',
@@ -75,7 +75,7 @@ class Stasimo_Rest {
 		);
 
 		register_rest_route(
-			'static-site-mount/v1',
+			'stasimo/v1',
 			'/mounts/(?P<slug>[a-z0-9-]+)/reindex',
 			array(
 				'methods'             => 'POST',
@@ -83,7 +83,7 @@ class Stasimo_Rest {
 				'callback'            => function ( WP_REST_Request $req ) {
 					$m = Stasimo_Mounts::get( $req['slug'] );
 					if ( ! $m ) {
-						return new WP_Error( 'stasimo_unknown', __( 'Unknown mount.', 'static-site-mount' ), array( 'status' => 404 ) );
+						return new WP_Error( 'stasimo_unknown', __( 'Unknown mount.', 'stasimo-static-site-mount' ), array( 'status' => 404 ) );
 					}
 					$r = Stasimo_Indexer::reindex( $m );
 					return is_wp_error( $r ) ? new WP_Error( $r->get_error_code(), $r->get_error_message(), array( 'status' => 422 ) ) : $r;
@@ -92,7 +92,7 @@ class Stasimo_Rest {
 		);
 
 		register_rest_route(
-			'static-site-mount/v1',
+			'stasimo/v1',
 			'/mounts/(?P<slug>[a-z0-9-]+)/deploy',
 			array(
 				'methods'             => 'POST',
@@ -108,11 +108,11 @@ class Stasimo_Rest {
 	public static function deploy( WP_REST_Request $req ) {
 		$m = Stasimo_Mounts::get( $req['slug'] );
 		if ( ! $m ) {
-			return new WP_Error( 'stasimo_unknown', __( 'Unknown mount.', 'static-site-mount' ), array( 'status' => 404 ) );
+			return new WP_Error( 'stasimo_unknown', __( 'Unknown mount.', 'stasimo-static-site-mount' ), array( 'status' => 404 ) );
 		}
 		$lock = self::lock( $m['slug'] );
 		if ( ! $lock ) {
-			return new WP_Error( 'stasimo_busy', __( 'A deploy for this mount is already running.', 'static-site-mount' ), array( 'status' => 409 ) );
+			return new WP_Error( 'stasimo_busy', __( 'A deploy for this mount is already running.', 'stasimo-static-site-mount' ), array( 'status' => 409 ) );
 		}
 		// Release the lock even if PHP dies mid-deploy (fatal error, timeout), so the next run is not blocked.
 		register_shutdown_function(
@@ -138,13 +138,13 @@ class Stasimo_Rest {
 			$body = $req->get_body();
 			if ( '' === $body ) {
 				delete_option( $lock );
-				return new WP_Error( 'stasimo_empty', __( 'Send the zip as multipart field "file" or as the request body.', 'static-site-mount' ), array( 'status' => 400 ) );
+				return new WP_Error( 'stasimo_empty', __( 'Send the zip as multipart field "file" or as the request body.', 'stasimo-static-site-mount' ), array( 'status' => 400 ) );
 			}
 			$fs  = Stasimo_Files::fs(); // also loads wp-admin/includes/file.php, which wp_tempnam() lives in.
 			$tmp = wp_tempnam( 'stasimo-upload.zip', get_temp_dir() );
 			if ( ! $tmp || ! $fs->put_contents( $tmp, $body, FS_CHMOD_FILE ) ) {
 				delete_option( $lock );
-				return new WP_Error( 'stasimo_tmp', __( 'Could not store the upload.', 'static-site-mount' ), array( 'status' => 500 ) );
+				return new WP_Error( 'stasimo_tmp', __( 'Could not store the upload.', 'stasimo-static-site-mount' ), array( 'status' => 500 ) );
 			}
 			$cleanup = true;
 		}
@@ -183,12 +183,12 @@ class Stasimo_Rest {
 		if ( UPLOAD_ERR_INI_SIZE === $code || UPLOAD_ERR_FORM_SIZE === $code ) {
 			return sprintf(
 				/* translators: 1: upload_max_filesize, 2: post_max_size */
-				__( 'The upload is larger than this server allows (upload_max_filesize %1$s, post_max_size %2$s). Raise both in php.ini, or deploy with WP-CLI or by copying files and pressing Re-index.', 'static-site-mount' ),
+				__( 'The upload is larger than this server allows (upload_max_filesize %1$s, post_max_size %2$s). Raise both in php.ini, or deploy with WP-CLI or by copying files and pressing Re-index.', 'stasimo-static-site-mount' ),
 				ini_get( 'upload_max_filesize' ),
 				ini_get( 'post_max_size' )
 			);
 		}
 		/* translators: %d PHP upload error code */
-		return sprintf( __( 'The upload failed (PHP upload error %d).', 'static-site-mount' ), $code );
+		return sprintf( __( 'The upload failed (PHP upload error %d).', 'stasimo-static-site-mount' ), $code );
 	}
 }

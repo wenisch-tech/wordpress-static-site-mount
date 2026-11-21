@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draws the Static Site Mount logo: a theme header and footer with an empty slot between them,
+"""Draws the Stasimo logo: a theme header and footer with an empty slot between them,
 and a page sliding into that slot. Writes static PNGs and animated GIFs into assets/. Needs Pillow."""
 import math, os
 from PIL import Image, ImageDraw, ImageChops
