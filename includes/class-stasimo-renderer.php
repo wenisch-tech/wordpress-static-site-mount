@@ -32,13 +32,13 @@ class Stasimo_Renderer {
 	 * Print one static HTML page inside the active theme.
 	 *
 	 * @param array  $m       Mount (raw).
-	 * @param string $file    Absolute HTML file.
+	 * @param string $html    HTML of the page.
 	 * @param string $rel_url URL path relative to the mount, as requested.
 	 * @param int    $status  HTTP status (200 or 404).
 	 */
-	public static function render( array $m, $file, $rel_url, $status = 200 ) {
+	public static function render( array $m, $html, $rel_url, $status = 200 ) {
 		$cfg   = Stasimo_Mounts::effective( $m );
-		$html  = (string) Stasimo_Files::fs()->get_contents( $file );
+		$html  = (string) $html;
 		$parts = Stasimo_HTML::split( $html );
 		$seo   = Stasimo_HTML::seo( $parts['head'] );
 

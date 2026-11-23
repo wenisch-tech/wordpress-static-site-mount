@@ -1,6 +1,6 @@
 <?php
 /**
- * Routing: maps /<prefix>/... to files in the mount folder and serves them safely.
+ * Routing: maps /<prefix>/... to the files of the mount's live build and serves them safely.
  *
  * @package StaticSiteMount
  */
@@ -8,11 +8,11 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Routing: maps /<prefix>/... to files in the mount folder and serves them safely.
+ * Routing: maps /<prefix>/... to the files of the mount's live build and serves them safely.
  */
 class Stasimo_Server {
 
-	/** Extensions that may be served. Anything else (php, htaccess, sh ...) never leaves the folder. */
+	/** Extensions that may be deployed and served. Anything else (php, htaccess, sh ...) is refused at deploy time. */
 	public static function mime_types() {
 		return apply_filters(
 			'stasimo_mime_types',
@@ -119,17 +119,13 @@ class Stasimo_Server {
 	}
 
 	/**
-	 * Resolve a request path to a file inside the mount folder.
+	 * Resolve a request path to a file of the mount's live build.
 	 *
-	 * @param string $base_dir Absolute mount folder.
-	 * @param string $rel      Path relative to the mount, as requested.
-	 * @return array|null {file:string, dir_index:bool}
+	 * @param array  $m   Mount.
+	 * @param string $rel Path relative to the mount, as requested.
+	 * @return array|null {path:string, dir_index:bool, file:string|null (media file on disk), size:int, mtime:int, etag:string}
 	 */
-	public static function resolve( $base_dir, $rel ) {
-		$real_base = realpath( $base_dir );
-		if ( false === $real_base ) {
-			return null;
-		}
+	public static function resolve( array $m, $rel ) {
 		if ( false !== strpos( $rel, "\0" ) || false !== strpos( $rel, '\\' ) ) {
 			return null;
 		}
@@ -141,28 +137,84 @@ class Stasimo_Server {
 		$rel_trim = trim( $rel, '/' );
 		$cands    = array();
 		if ( '' === $rel || '/' === substr( $rel, -1 ) ) {
-			$cands[] = array( ( '' === $rel_trim ? '' : $rel_trim . '/' ) . 'index.html', true );
+			$cands[ ( '' === $rel_trim ? '' : $rel_trim . '/' ) . 'index.html' ] = true;
 		} else {
-			$cands[] = array( $rel_trim, false );
-			$cands[] = array( $rel_trim . '.html', false );
-			$cands[] = array( $rel_trim . '/index.html', true );
+			$cands[ $rel_trim ]                 = false;
+			$cands[ $rel_trim . '.html' ]       = false;
+			$cands[ $rel_trim . '/index.html' ] = true;
 		}
 		$types = self::mime_types();
-		foreach ( $cands as $c ) {
-			$full = realpath( $real_base . '/' . $c[0] );
-			if ( false === $full || 0 !== strpos( $full, $real_base . DIRECTORY_SEPARATOR ) || ! is_file( $full ) ) {
-				continue;
+		foreach ( array_keys( $cands ) as $c ) {
+			if ( ! isset( $types[ strtolower( pathinfo( $c, PATHINFO_EXTENSION ) ) ] ) ) {
+				unset( $cands[ $c ] );
 			}
-			$ext = strtolower( pathinfo( $full, PATHINFO_EXTENSION ) );
-			if ( ! isset( $types[ $ext ] ) ) {
-				continue;
+		}
+		$code  = array_filter( array_keys( $cands ), array( __CLASS__, 'is_code' ) );
+		$found = $code ? Stasimo_Store::find( $m['slug'], array_values( $code ) ) : null;
+		foreach ( $cands as $c => $dir_index ) {
+			if ( $found && $found['path'] === $c ) {
+				return array(
+					'path'      => $c,
+					'dir_index' => $dir_index,
+					'file'      => null,
+					'size'      => (int) $found['size'],
+					'mtime'     => (int) $found['mtime'],
+					'etag'      => '"' . $found['hash'] . '"',
+				);
 			}
-			return array(
-				'file'      => $full,
-				'dir_index' => $c[1],
-			);
+			if ( ! self::is_code( $c ) ) {
+				$file = self::media_file( $m, $c );
+				if ( $file ) {
+					return array(
+						'path'      => $c,
+						'dir_index' => $dir_index,
+						'file'      => $file,
+						'size'      => (int) filesize( $file ),
+						'mtime'     => (int) filemtime( $file ),
+						'etag'      => '"' . md5( filemtime( $file ) . '-' . filesize( $file ) ) . '"',
+					);
+				}
+			}
 		}
 		return null;
+	}
+
+	/**
+	 * Whether a path is a code file (stored in the database).
+	 *
+	 * @param string $path File path.
+	 * @return bool
+	 */
+	public static function is_code( $path ) {
+		return ! Stasimo_Store::is_media( $path );
+	}
+
+	/**
+	 * Absolute path of a media file of the live build, or null.
+	 *
+	 * @param array  $m   Mount.
+	 * @param string $rel Path inside the build.
+	 * @return string|null
+	 */
+	private static function media_file( array $m, $rel ) {
+		$build = Stasimo_Store::current( $m['slug'] );
+		$base  = '' === $build ? false : realpath( Stasimo_Store::media_dir( $m['slug'], $build ) );
+		if ( false === $base ) {
+			return null;
+		}
+		$full = realpath( $base . '/' . $rel );
+		return false !== $full && 0 === strpos( $full, $base . DIRECTORY_SEPARATOR ) && is_file( $full ) ? $full : null;
+	}
+
+	/**
+	 * HTML of a page of the live build.
+	 *
+	 * @param array $m     Mount.
+	 * @param array $found Result of resolve().
+	 * @return string
+	 */
+	private static function html( array $m, array $found ) {
+		return (string) Stasimo_Store::body( $m['slug'], $found['path'] );
 	}
 
 	/**
@@ -185,14 +237,13 @@ class Stasimo_Server {
 		$slash    = '/' === substr( $uri_path, -1 );
 		$rel_req  = $rel . ( $slash && '' !== $rel ? '/' : '' );
 
-		$dir   = Stasimo_Mounts::dir( $m );
-		$found = self::resolve( $dir, $rel_req );
+		$found = self::resolve( $m, $rel_req );
 
 		if ( ! $found ) {
-			$nf = self::resolve( $dir, '404.html' );
+			$nf = self::resolve( $m, '404.html' );
 			global $wp_query;
 			if ( $nf ) {
-				Stasimo_Renderer::render( $m, $nf['file'], $rel_req, 404 );
+				Stasimo_Renderer::render( $m, self::html( $m, $nf ), $rel_req, 404 );
 				exit;
 			}
 			$wp_query->set_404();
@@ -200,7 +251,7 @@ class Stasimo_Server {
 			return;
 		}
 
-		$ext = strtolower( pathinfo( $found['file'], PATHINFO_EXTENSION ) );
+		$ext = strtolower( pathinfo( $found['path'], PATHINFO_EXTENSION ) );
 		if ( in_array( $ext, array( 'html', 'htm' ), true ) ) {
 			// Folder pages live at ".../name/": redirect "name" to "name/", which keeps relative links working.
 			// This includes the mount root itself, because relative URLs such as assets/x.css break without the slash.
@@ -214,26 +265,26 @@ class Stasimo_Server {
 				exit;
 			}
 			$url_rel = $found['dir_index'] ? ( '' === trim( $rel, '/' ) ? '' : trim( $rel, '/' ) . '/' ) : trim( $rel, '/' );
-			Stasimo_Renderer::render( $m, $found['file'], $url_rel, 200 );
+			Stasimo_Renderer::render( $m, self::html( $m, $found ), $url_rel, 200 );
 			exit;
 		}
 
 		$types = self::mime_types();
-		self::send_file( $found['file'], $types[ $ext ] );
+		self::send( $m, $found, $types[ $ext ] );
 	}
 
 	/**
 	 * Send a file with caching headers and answer conditional requests.
 	 *
-	 * @param string $file Absolute path.
-	 * @param string $mime Content type.
+	 * @param array  $m     Mount.
+	 * @param array  $found Result of resolve().
+	 * @param string $mime  Content type.
 	 */
-	private static function send_file( $file, $mime ) {
-		$mtime = (int) filemtime( $file );
-		$size  = (int) filesize( $file );
-		$etag  = '"' . md5( $mtime . '-' . $size ) . '"';
+	private static function send( array $m, array $found, $mime ) {
+		$mtime = $found['mtime'];
+		$etag  = $found['etag'];
 		// Build tools fingerprint assets (main.3e1a2b9c.js), so those can be cached "forever".
-		$hashed = (bool) preg_match( '/\.[0-9a-f]{6,}\.[a-z0-9]+$/i', basename( $file ) );
+		$hashed = (bool) preg_match( '/\.[0-9a-f]{6,}\.[a-z0-9]+$/i', basename( $found['path'] ) );
 
 		while ( ob_get_level() ) {
 			ob_end_clean();
@@ -251,13 +302,18 @@ class Stasimo_Server {
 			exit;
 		}
 		status_header( 200 );
-		header( 'Content-Length: ' . $size );
+		header( 'Content-Length: ' . $found['size'] );
 		if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'HEAD' === sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) {
+			exit;
+		}
+		if ( null === $found['file'] ) {
+			// A code file from the database, sent as is with its own Content-Type and nosniff (like a static file server).
+			echo (string) Stasimo_Store::body( $m['slug'], $found['path'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			exit;
 		}
 		// WordPress has no function that streams a file to the client (core itself calls readfile() in ms-files.php), and
 		// WP_Filesystem::get_contents() would load the whole file into memory. SplFileObject sends it in constant memory.
-		$handle = new SplFileObject( $file, 'rb' );
+		$handle = new SplFileObject( $found['file'], 'rb' );
 		$handle->fpassthru();
 		exit;
 	}

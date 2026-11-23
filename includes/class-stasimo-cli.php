@@ -23,13 +23,13 @@ class Stasimo_CLI {
 			$m      = wp_parse_args( $m, Stasimo_Mounts::defaults() );
 			$idx    = Stasimo_Indexer::get( $slug );
 			$rows[] = array(
-				'slug'   => $slug,
-				'url'    => Stasimo_Mounts::url( $m ),
-				'folder' => Stasimo_Mounts::dir( $m ),
-				'pages'  => count( $idx['pages'] ),
+				'slug'  => $slug,
+				'url'   => Stasimo_Mounts::url( $m ),
+				'build' => Stasimo_Store::current( $slug ),
+				'pages' => count( $idx['pages'] ),
 			);
 		}
-		WP_CLI\Utils\format_items( 'table', $rows, array( 'slug', 'url', 'folder', 'pages' ) );
+		WP_CLI\Utils\format_items( 'table', $rows, array( 'slug', 'url', 'build', 'pages' ) );
 	}
 
 	/**
@@ -45,9 +45,6 @@ class Stasimo_CLI {
 	 *
 	 * [--preset=<preset>]
 	 * : docusaurus, mkdocs-material or generic.
-	 *
-	 * [--dir=<dir>]
-	 * : Folder name inside the stasimo base folder in the uploads directory (absolute paths need the stasimo_allow_external_dirs filter).
 	 *
 	 * [--header-offset=<px>]
 	 * : Space for a fixed theme header.
@@ -66,7 +63,6 @@ class Stasimo_CLI {
 			'slug'           => $args[0],
 			'prefix'         => isset( $assoc['prefix'] ) ? $assoc['prefix'] : '',
 			'preset'         => isset( $assoc['preset'] ) ? $assoc['preset'] : 'docusaurus',
-			'dir'            => isset( $assoc['dir'] ) ? $assoc['dir'] : '',
 			'header_offset'  => isset( $assoc['header-offset'] ) ? $assoc['header-offset'] : 0,
 			'host_theme_key' => isset( $assoc['host-theme-key'] ) ? $assoc['host-theme-key'] : '',
 			'trusted'        => ! empty( $assoc['trusted'] ),

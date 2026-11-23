@@ -160,9 +160,11 @@ class Stasimo_Rest {
 				delete_option( $lock );
 				return new WP_Error( 'stasimo_empty', __( 'Send the zip as multipart field "file" or as the request body.', 'stasimo-static-site-mount' ), array( 'status' => 400 ) );
 			}
-			$fs  = Stasimo_Files::fs(); // also loads wp-admin/includes/file.php, which wp_tempnam() lives in.
-			$tmp = wp_tempnam( 'stasimo-upload.zip', get_temp_dir() );
-			if ( ! $tmp || ! $fs->put_contents( $tmp, $body, FS_CHMOD_FILE ) ) {
+			// The raw body is parked inside the plugin's uploads folder, never anywhere else.
+			Stasimo_Mounts::prepare_base_dir();
+			$base = Stasimo_Mounts::base_dir();
+			$tmp  = '' === $base ? '' : $base . '/upload-' . wp_generate_password( 12, false ) . '.tmp';
+			if ( '' === $tmp || ! Stasimo_Files::fs()->put_contents( $tmp, $body, FS_CHMOD_FILE ) ) {
 				delete_option( $lock );
 				return new WP_Error( 'stasimo_tmp', __( 'Could not store the upload.', 'stasimo-static-site-mount' ), array( 'status' => 500 ) );
 			}
@@ -210,7 +212,7 @@ class Stasimo_Rest {
 		if ( UPLOAD_ERR_INI_SIZE === $code || UPLOAD_ERR_FORM_SIZE === $code ) {
 			return sprintf(
 				/* translators: 1: upload_max_filesize, 2: post_max_size */
-				__( 'The upload is larger than this server allows (upload_max_filesize %1$s, post_max_size %2$s). Raise both in php.ini, or deploy with WP-CLI or by copying files and pressing Re-index.', 'stasimo-static-site-mount' ),
+				__( 'The upload is larger than this server allows (upload_max_filesize %1$s, post_max_size %2$s). Raise both in php.ini, or deploy with WP-CLI or with WP-CLI.', 'stasimo-static-site-mount' ),
 				ini_get( 'upload_max_filesize' ),
 				ini_get( 'post_max_size' )
 			);

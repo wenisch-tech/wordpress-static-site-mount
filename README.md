@@ -20,7 +20,7 @@ Other things it does:
 
 - serves assets with the right MIME type, `ETag`, and long caching for fingerprinted files
 - follows the theme's light/dark choice, if you tell it the localStorage key
-- replaces a mount's folder atomically on every deploy
+- switches a mount to the new build atomically on every deploy
 - has its own admin menu (Static Sites) and WP-CLI commands
 
 ## Requirements
@@ -67,8 +67,8 @@ The zip can have its files at the top level or inside one folder. If the build h
 |---|---|
 | `GET /wp-json/stasimo/v1/mounts` | list mounts with page counts |
 | `PUT /wp-json/stasimo/v1/mounts/<name>` | create or update a mount (JSON) |
-| `POST /wp-json/stasimo/v1/mounts/<name>/deploy` | replace the folder with a zip, re-index |
-| `POST /wp-json/stasimo/v1/mounts/<name>/reindex` | re-index after changing files some other way |
+| `POST /wp-json/stasimo/v1/mounts/<name>/deploy` | deploy a zip as the new live build, re-index |
+| `POST /wp-json/stasimo/v1/mounts/<name>/reindex` | rebuild the page index (titles, descriptions, sitemap) of the live build |
 
 WP-CLI: `wp stasimo list`, `add`, `deploy`, `reindex`. Pass `--trusted` to `add` for a trusted mount, and `"trusted": true` in the JSON of the PUT request.
 
@@ -76,7 +76,7 @@ WP-CLI: `wp stasimo list`, `add`, `deploy`, `reindex`. Pass `--trusted` to `add`
 
 | Setting | Meaning |
 |---|---|
-| Name | short name; also the folder name under `wp-content/uploads/stasimo/` |
+| Name | short name of the mount |
 | URL prefix | where the site appears, e.g. `docs/my-project`; must match the build's base URL |
 | Type | a preset for a known generator (Docusaurus, MkDocs Material) or generic static site |
 | Page content | *Filtered* (default) or *Trusted*, see above. Setting it needs the same capabilities as deploying |
@@ -101,7 +101,7 @@ add_filter( 'stasimo_presets', function ( $presets ) {
 } );
 ```
 
-Other hooks: `stasimo_title`, `stasimo_description`, `stasimo_header_html`, `stasimo_footer_html`, `stasimo_host_css`, `stasimo_mime_types`, `stasimo_base_dir`, `stasimo_allow_external_dirs`, and the action `stasimo_deployed`.
+Other hooks: `stasimo_title`, `stasimo_description`, `stasimo_header_html`, `stasimo_footer_html`, `stasimo_host_css`, `stasimo_mime_types`, and the action `stasimo_deployed`.
 
 ## Security
 
@@ -109,9 +109,9 @@ By default a mount is *Filtered*: the uploaded pages are passed through `wp_kses
 
 A *Trusted* mount serves the build as it is, HTML and JavaScript from your own domain. Whoever can deploy to it can run script on your site, so only trust builds you made yourself. Managing mounts, trusted or not, needs both `manage_options` and `unfiltered_html`; this is the same trust WordPress gives to post content written by such a user. On multisite, site admins don't have the second capability, so only super admins can use the plugin. For CI, use an Application Password of a dedicated administrator.
 
-Uploads are limited to a list of file types. Names that look executable (`shell.php.png`), paths with `..` or absolute paths, and archives larger than 512 MB unpacked or 50,000 files are refused. Mount folders always sit inside `wp-content/uploads/stasimo/`.
+Uploads are limited to a list of file types. Names that look executable (`shell.php.png`), paths with `..` or absolute paths, and archives larger than 512 MB unpacked or 50,000 files are refused. Code files of a build (HTML, JavaScript, CSS, JSON, SVG, WebAssembly and other non-media types) are stored in the database table `{prefix}stasimo_files` and are never written to the filesystem. Only media files (images, fonts, PDF, video, plain text) are written, to `stasimo-static-site-mount/<mount>/<build>/` in the uploads directory, resolved with `wp_upload_dir()`. A single code file can be at most 16 MB (less if the database's `max_allowed_packet` is smaller).
 
-On Apache the plugin writes an `.htaccess` that blocks direct access to that folder. On nginx you need to add `location ^~ /wp-content/uploads/stasimo/ { deny all; }` yourself, otherwise the raw files can also be fetched without the theme around them.
+The media files are public, like any other file in the uploads directory, and can also be fetched directly. The plugin writes no `.htaccess`, `index.php` or other helper files.
 
 The plugin makes no outgoing requests and stores no personal data.
 

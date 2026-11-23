@@ -14,6 +14,9 @@ class Stasimo_Mounts {
 
 	const OPTION = 'stasimo_mounts';
 
+	/** Name of the plugin's folder inside the uploads directory (the plugin slug). */
+	const FOLDER = 'stasimo-static-site-mount';
+
 	/** Prefixes that must never be mounted. */
 	const RESERVED = array(
 		'wp-admin',
@@ -135,7 +138,6 @@ class Stasimo_Mounts {
 			'slug'           => '',
 			'enabled'        => true,
 			'prefix'         => '',
-			'dir'            => '',
 			'preset'         => 'docusaurus',
 			'hide'           => '',
 			'remove'         => '',
@@ -231,19 +233,7 @@ class Stasimo_Mounts {
 			return new WP_Error( 'stasimo_reserved', __( 'That URL prefix is reserved by WordPress.', 'stasimo-static-site-mount' ) );
 		}
 		$m['prefix'] = $prefix;
-
-		// The folder is always inside the base folder (uploads/stasimo): a deploy replaces it, so it must never point elsewhere.
-		// Use the stasimo_base_dir filter to move the base folder, or stasimo_allow_external_dirs to allow absolute paths (WP-CLI use).
-		$dir = trim( (string) $m['dir'], " \t\n\r\0\x0B/" );
-		if ( '' !== $dir ) {
-			$absolute = 0 === strpos( (string) $m['dir'], '/' ) || preg_match( '#^[A-Za-z]:[\\\\/]#', (string) $m['dir'] );
-			if ( $absolute && apply_filters( 'stasimo_allow_external_dirs', false ) ) {
-				$dir = untrailingslashit( (string) $m['dir'] );
-			} elseif ( $absolute || ! preg_match( '#^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$#', $dir ) || false !== strpos( $dir, '..' ) ) {
-				return new WP_Error( 'stasimo_dir', __( 'The folder must be a plain name inside the stasimo folder (letters, digits, dash, underscore).', 'stasimo-static-site-mount' ) );
-			}
-		}
-		$m['dir'] = $dir;
+		unset( $m['dir'] ); // Removed option: builds are always stored by the plugin.
 
 		$presets           = self::presets();
 		$m['preset']       = isset( $presets[ $m['preset'] ] ) ? $m['preset'] : 'generic';
@@ -292,34 +282,17 @@ class Stasimo_Mounts {
 	}
 
 	/**
-	 * Base folder for all mounts: <uploads>/stasimo (per site on multisite).
+	 * Folder for the media files (images, fonts ...) of all mounts: <uploads>/stasimo-static-site-mount (per site on multisite),
+	 * resolved with wp_upload_dir(). Code files are never written there; they are stored in the database (see Stasimo_Store).
 	 *
-	 * @return string Absolute path without trailing slash.
+	 * @return string Absolute path without trailing slash, or '' if the uploads directory is unknown.
 	 */
 	public static function base_dir() {
-		$up      = wp_upload_dir( null, false );
-		$default = untrailingslashit( empty( $up['basedir'] ) ? WP_CONTENT_DIR . '/uploads' : $up['basedir'] ) . '/stasimo';
-		return untrailingslashit( apply_filters( 'stasimo_base_dir', $default ) );
-	}
-
-	/**
-	 * Absolute folder of a mount's files.
-	 *
-	 * @param array $m Mount.
-	 */
-	public static function dir( array $m ) {
-		$dir = isset( $m['dir'] ) ? trim( $m['dir'] ) : '';
-		if ( '' === $dir ) {
-			return self::base_dir() . '/' . $m['slug'];
+		$up = wp_upload_dir( null, false );
+		if ( empty( $up['basedir'] ) ) {
+			return '';
 		}
-		if ( 0 === strpos( $dir, '/' ) || preg_match( '#^[A-Za-z]:[\\\\/]#', $dir ) ) {
-			// Absolute folders only when explicitly allowed; otherwise fall back to the default location.
-			return apply_filters( 'stasimo_allow_external_dirs', false ) ? untrailingslashit( $dir ) : self::base_dir() . '/' . $m['slug'];
-		}
-		if ( preg_match( '#(^|/)\.#', $dir ) ) {
-			return self::base_dir() . '/' . $m['slug'];
-		}
-		return self::base_dir() . '/' . trim( $dir, '/' );
+		return untrailingslashit( $up['basedir'] ) . '/' . self::FOLDER;
 	}
 
 	/**
@@ -334,21 +307,13 @@ class Stasimo_Mounts {
 	}
 
 	/**
-	 * Create the base folder and keep it from being served directly by the web server.
+	 * Create the plugin's media folder in the uploads directory. Only folders are created here: no helper files are written.
+	 * The folder holds public media (images, fonts, video) only; code is stored in the database.
 	 */
 	public static function prepare_base_dir() {
 		$base = self::base_dir();
-		if ( ! is_dir( $base ) ) {
+		if ( '' !== $base && ! is_dir( $base ) ) {
 			wp_mkdir_p( $base );
-		}
-		$ht = $base . '/.htaccess';
-		if ( is_dir( $base ) && ! file_exists( $ht ) ) {
-			// Files are served through WordPress so the theme wrapper, SEO and caching rules always apply.
-			Stasimo_Files::fs()->put_contents( $ht, "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n", FS_CHMOD_FILE );
-		}
-		$ix = $base . '/index.php';
-		if ( is_dir( $base ) && ! file_exists( $ix ) ) {
-			Stasimo_Files::fs()->put_contents( $ix, "<?php\n// Silence is golden.\n", FS_CHMOD_FILE );
 		}
 	}
 }

@@ -141,7 +141,7 @@ class Stasimo_Admin {
 		if ( ! $m['enabled'] ) {
 			return array( 'off', __( 'Disabled', 'stasimo-static-site-mount' ) );
 		}
-		if ( ! is_dir( Stasimo_Mounts::dir( $m ) ) ) {
+		if ( '' === Stasimo_Store::current( $m['slug'] ) ) {
 			return array( 'warn', __( 'No files yet', 'stasimo-static-site-mount' ) );
 		}
 		return array( 'on', __( 'Active', 'stasimo-static-site-mount' ) );
@@ -229,11 +229,11 @@ class Stasimo_Admin {
 		$all[ $slug ]['enabled'] = $now;
 		Stasimo_Mounts::save_all( $all );
 		$back = isset( $_GET['to'] ) && 'detail' === sanitize_key( wp_unslash( $_GET['to'] ) ) ? array( 'mount' => $slug ) : array();
-		self::back( $now ? __( 'Mount enabled. Its pages are live again.', 'stasimo-static-site-mount' ) : __( 'Mount disabled. Its URLs now show a normal 404; the files stay on disk.', 'stasimo-static-site-mount' ), 'success', $back );
+		self::back( $now ? __( 'Mount enabled. Its pages are live again.', 'stasimo-static-site-mount' ) : __( 'Mount disabled. Its URLs now show a normal 404; the deployed build is kept.', 'stasimo-static-site-mount' ), 'success', $back );
 	}
 
 	/**
-	 * Handle the remove button of a mount. Its files stay on disk.
+	 * Handle the remove button of a mount. Its deployed build is deleted.
 	 */
 	public static function delete() {
 		self::guard();
@@ -243,7 +243,8 @@ class Stasimo_Admin {
 		unset( $all[ $slug ] );
 		Stasimo_Mounts::save_all( $all );
 		delete_option( Stasimo_Indexer::option_name( $slug ) );
-		self::back( __( 'Mount removed. Its files were left on disk.', 'stasimo-static-site-mount' ) );
+		Stasimo_Store::remove_mount( $slug );
+		self::back( __( 'Mount removed together with its deployed build.', 'stasimo-static-site-mount' ) );
 	}
 
 	/* ------------------------------------------------------------ list view */
@@ -446,11 +447,6 @@ class Stasimo_Admin {
 							__( 'Filtered removes scripts, forms, frames and event handlers from the pages and shows what is left inside your theme. Trusted runs the site\'s own JavaScript and prints its markup as it is, which Docusaurus, MkDocs and similar generators need. Only choose Trusted for sites you built yourself.', 'stasimo-static-site-mount' ),
 							$trusted_select
 						);
-						self::field_row(
-							__( 'Folder', 'stasimo-static-site-mount' ),
-							sprintf( /* translators: %s default folder */ __( 'Optional. Empty means %s', 'stasimo-static-site-mount' ), Stasimo_Mounts::base_dir() . '/' . ( $slug ? $slug : '<name>' ) ),
-							'<input type="text" class="large-text" name="' . esc_attr( $n ) . '[dir]" value="' . esc_attr( $m['dir'] ) . '">'
-						);
 						?>
 					</table>
 				</div>
@@ -512,7 +508,6 @@ class Stasimo_Admin {
 	private static function side_cards( array $m ) {
 		$slug = $m['slug'];
 		$idx  = Stasimo_Indexer::get( $slug );
-		$dir  = Stasimo_Mounts::dir( $m );
 		$curl = "cd build && zip -qr ../build.zip . && cd ..\n"
 			. "curl -fsS -u \"\$WP_USER:\$WP_APP_PASSWORD\" \\\n  -F \"file=@build.zip\" \\\n  \"" . rest_url( 'stasimo/v1/mounts/' . $slug . '/deploy' ) . '"';
 		?>
@@ -522,7 +517,7 @@ class Stasimo_Admin {
 				<dl class="stasimo-kv">
 					<dt><?php esc_html_e( 'Pages', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo esc_html( (string) count( $idx['pages'] ) ); ?></dd>
 					<dt><?php esc_html_e( 'Last indexed', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo $idx['time'] ? esc_html( human_time_diff( $idx['time'] ) . ' ' . __( 'ago', 'stasimo-static-site-mount' ) ) : '&ndash;'; ?></dd>
-					<dt><?php esc_html_e( 'Folder', 'stasimo-static-site-mount' ); ?></dt><dd><code><?php echo esc_html( $dir ); ?></code><?php echo is_dir( $dir ) ? '' : ' <span class="stasimo-badge stasimo-badge--warn">' . esc_html__( 'missing', 'stasimo-static-site-mount' ) . '</span>'; ?></dd>
+					<dt><?php esc_html_e( 'Build', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo '' !== Stasimo_Store::current( $slug ) ? '<code>' . esc_html( Stasimo_Store::current( $slug ) ) . '</code>' : '<span class="stasimo-badge stasimo-badge--warn">' . esc_html__( 'not deployed', 'stasimo-static-site-mount' ) . '</span>'; ?></dd>
 					<dt><?php esc_html_e( 'Page content', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo $m['trusted'] ? esc_html__( 'Trusted', 'stasimo-static-site-mount' ) : esc_html__( 'Filtered', 'stasimo-static-site-mount' ); ?></dd>
 					<dt><?php esc_html_e( 'Sitemap', 'stasimo-static-site-mount' ); ?></dt><dd><?php echo $m['sitemap'] && ! $m['noindex'] ? esc_html__( 'included', 'stasimo-static-site-mount' ) : esc_html__( 'not included', 'stasimo-static-site-mount' ); ?></dd>
 				</dl>
@@ -535,7 +530,7 @@ class Stasimo_Admin {
 
 			<div class="stasimo-card">
 				<h2><?php esc_html_e( 'Deploy', 'stasimo-static-site-mount' ); ?></h2>
-				<p class="description"><?php esc_html_e( 'From CI, with an Application Password (Users > Profile). The folder is replaced atomically and re-indexed.', 'stasimo-static-site-mount' ); ?></p>
+				<p class="description"><?php esc_html_e( 'From CI, with an Application Password (Users > Profile). The live build is switched atomically and re-indexed.', 'stasimo-static-site-mount' ); ?></p>
 				<pre class="stasimo-code"><?php echo esc_html( $curl ); ?></pre>
 				<p class="description"><?php echo esc_html( 'wp stasimo deploy ' . $slug . ' /path/to/build' ); ?></p>
 			</div>
@@ -567,8 +562,8 @@ class Stasimo_Admin {
 
 			<div class="stasimo-card stasimo-danger">
 				<h2><?php esc_html_e( 'Remove', 'stasimo-static-site-mount' ); ?></h2>
-				<p class="description"><?php esc_html_e( 'Removes the mount from this list and stops serving it. The files stay on disk.', 'stasimo-static-site-mount' ); ?></p>
-				<a class="button stasimo-delete" href="<?php echo esc_url( self::action_url( 'stasimo_delete', $slug ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Remove this mount? Its files stay on disk.', 'stasimo-static-site-mount' ) ); ?>')"><?php esc_html_e( 'Remove mount', 'stasimo-static-site-mount' ); ?></a>
+				<p class="description"><?php esc_html_e( 'Removes the mount and deletes its deployed build.', 'stasimo-static-site-mount' ); ?></p>
+				<a class="button stasimo-delete" href="<?php echo esc_url( self::action_url( 'stasimo_delete', $slug ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Remove this mount and delete its deployed build?', 'stasimo-static-site-mount' ) ); ?>')"><?php esc_html_e( 'Remove mount', 'stasimo-static-site-mount' ); ?></a>
 			</div>
 		</div>
 		<?php
@@ -610,7 +605,7 @@ class Stasimo_Admin {
 			<ol class="stasimo-steps">
 				<li><strong><?php esc_html_e( 'Build with the right base URL.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'JavaScript apps embed their base path, so build the site for the URL you will mount it at.', 'stasimo-static-site-mount' ); ?></li>
 				<li><strong><?php esc_html_e( 'Add a mount.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'Choose a name, the URL prefix and the generator type.', 'stasimo-static-site-mount' ); ?></li>
-				<li><strong><?php esc_html_e( 'Deploy.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'Upload a zip through the REST API or WP-CLI. The folder is replaced atomically and every page is indexed.', 'stasimo-static-site-mount' ); ?></li>
+				<li><strong><?php esc_html_e( 'Deploy.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'Upload a zip through the REST API or WP-CLI. Code files are stored in the database, media files in the uploads directory. The live build is switched atomically and every page is indexed.', 'stasimo-static-site-mount' ); ?></li>
 				<li><strong><?php esc_html_e( 'Visitors get one site.', 'stasimo-static-site-mount' ); ?></strong> <?php esc_html_e( 'Pages are served through WordPress, wrapped in your theme\'s header and footer, with titles, descriptions, canonical URLs and a sitemap written by the plugin.', 'stasimo-static-site-mount' ); ?></li>
 			</ol>
 
@@ -619,10 +614,10 @@ class Stasimo_Admin {
 				<tbody>
 				<?php
 				self::check_row( 'PHP ' . PHP_VERSION, version_compare( PHP_VERSION, '7.4', '>=' ), __( 'Requires PHP 7.4 or newer.', 'stasimo-static-site-mount' ) );
-				self::check_row( __( 'Zip support', 'stasimo-static-site-mount' ), class_exists( 'ZipArchive' ), __( 'Needed to deploy zip files. Without it you can still copy files and press Re-index.', 'stasimo-static-site-mount' ) );
+				self::check_row( __( 'Zip support', 'stasimo-static-site-mount' ), class_exists( 'ZipArchive' ), __( 'Needed to deploy zip files. Without it you can still deploy a folder with WP-CLI.', 'stasimo-static-site-mount' ) );
 				self::check_row( __( 'Block theme', 'stasimo-static-site-mount' ), $block, $block ? __( 'The theme\'s header and footer wrap mounted pages.', 'stasimo-static-site-mount' ) : __( 'Classic theme: pages are served without the header/footer wrapper. Use the stasimo_header_html / stasimo_footer_html filters.', 'stasimo-static-site-mount' ) );
 				self::check_row( __( 'Pretty permalinks', 'stasimo-static-site-mount' ), $pretty, $pretty ? __( 'Enabled.', 'stasimo-static-site-mount' ) : __( 'Enable them under Settings > Permalinks, mounts need them.', 'stasimo-static-site-mount' ) );
-				self::check_row( __( 'Storage folder', 'stasimo-static-site-mount' ), $writable, $base );
+				self::check_row( __( 'Media folder', 'stasimo-static-site-mount' ), $writable, $base );
 				self::check_row( __( 'Upload limit', 'stasimo-static-site-mount' ), null, sprintf( /* translators: 1: upload_max_filesize 2: post_max_size */ __( 'upload_max_filesize %1$s, post_max_size %2$s. Zips larger than this cannot be deployed over REST.', 'stasimo-static-site-mount' ), ini_get( 'upload_max_filesize' ), ini_get( 'post_max_size' ) ) );
 				self::check_row( __( 'SEO plugin', 'stasimo-static-site-mount' ), null, $yoast ? __( 'Yoast SEO detected: its tags are replaced on mounted pages and the sitemap is added to its index.', 'stasimo-static-site-mount' ) : __( 'None detected. The plugin writes its own tags and sitemap.', 'stasimo-static-site-mount' ) );
 				?>
@@ -637,7 +632,7 @@ class Stasimo_Admin {
 					<tr><td><code>GET /wp-json/stasimo/v1/mounts</code></td><td><?php esc_html_e( 'List mounts, page counts and last index time.', 'stasimo-static-site-mount' ); ?></td></tr>
 					<tr><td><code>PUT /wp-json/stasimo/v1/mounts/&lt;name&gt;</code></td><td><?php esc_html_e( 'Create or update a mount (JSON: prefix, preset, header_offset, host_theme_key, enabled).', 'stasimo-static-site-mount' ); ?></td></tr>
 					<tr><td><code>POST /wp-json/stasimo/v1/mounts/&lt;name&gt;/deploy</code></td><td><?php esc_html_e( 'Replace the folder with an uploaded zip and re-index. Send multipart field "file".', 'stasimo-static-site-mount' ); ?></td></tr>
-					<tr><td><code>POST /wp-json/stasimo/v1/mounts/&lt;name&gt;/reindex</code></td><td><?php esc_html_e( 'Re-index after files changed by other means.', 'stasimo-static-site-mount' ); ?></td></tr>
+					<tr><td><code>POST /wp-json/stasimo/v1/mounts/&lt;name&gt;/reindex</code></td><td><?php esc_html_e( 'Rebuild the page index (titles, descriptions, sitemap) of the live build.', 'stasimo-static-site-mount' ); ?></td></tr>
 				</tbody>
 			</table>
 
@@ -656,7 +651,7 @@ wp stasimo reindex [&lt;name&gt;]</pre>
 			</ul>
 
 			<h2><?php esc_html_e( 'Developers', 'stasimo-static-site-mount' ); ?></h2>
-			<p><?php esc_html_e( 'Filters:', 'stasimo-static-site-mount' ); ?> <code>stasimo_presets</code>, <code>stasimo_title</code>, <code>stasimo_description</code>, <code>stasimo_header_html</code>, <code>stasimo_footer_html</code>, <code>stasimo_host_css</code>, <code>stasimo_mime_types</code>, <code>stasimo_base_dir</code>. <?php esc_html_e( 'Action:', 'stasimo-static-site-mount' ); ?> <code>stasimo_deployed</code>.</p>
+			<p><?php esc_html_e( 'Filters:', 'stasimo-static-site-mount' ); ?> <code>stasimo_presets</code>, <code>stasimo_title</code>, <code>stasimo_description</code>, <code>stasimo_header_html</code>, <code>stasimo_footer_html</code>, <code>stasimo_host_css</code>, <code>stasimo_mime_types</code>. <?php esc_html_e( 'Action:', 'stasimo-static-site-mount' ); ?> <code>stasimo_deployed</code>.</p>
 
 			<h2><?php esc_html_e( 'Project', 'stasimo-static-site-mount' ); ?></h2>
 			<p>

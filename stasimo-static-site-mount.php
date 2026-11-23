@@ -22,6 +22,7 @@ define( 'STASIMO_FILE', __FILE__ );
 define( 'STASIMO_DIR', plugin_dir_path( __FILE__ ) );
 
 require_once STASIMO_DIR . 'includes/class-stasimo-files.php';
+require_once STASIMO_DIR . 'includes/class-stasimo-store.php';
 require_once STASIMO_DIR . 'includes/class-stasimo-mounts.php';
 require_once STASIMO_DIR . 'includes/class-stasimo-html.php';
 require_once STASIMO_DIR . 'includes/class-stasimo-indexer.php';
@@ -37,6 +38,9 @@ Stasimo_Sitemap::init();
 Stasimo_Rest::init();
 Stasimo_Admin::init();
 
+// Create or update the files table after a plugin update (the activation hook only runs on activation).
+add_action( 'plugins_loaded', array( 'Stasimo_Store', 'maybe_install' ) );
+
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once STASIMO_DIR . 'includes/class-stasimo-cli.php';
 	WP_CLI::add_command( 'stasimo', 'Stasimo_CLI' );
@@ -45,6 +49,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 register_activation_hook(
 	__FILE__,
 	function () {
+		Stasimo_Store::install();
 		Stasimo_Mounts::prepare_base_dir();
 		Stasimo_Server::register_rewrites();
 		flush_rewrite_rules( false );

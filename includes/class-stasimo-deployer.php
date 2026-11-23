@@ -1,6 +1,6 @@
 <?php
 /**
- * Replaces a mount's folder with the contents of a zip file or folder, atomically, then re-indexes.
+ * Deploys a build from a zip file or folder: code into the database, media into the uploads folder, then re-indexes.
  *
  * @package StaticSiteMount
  */
@@ -8,21 +8,12 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Replaces a mount's folder with the contents of a zip file or a folder, atomically, then re-indexes.
+ * Deploys a build from a zip file or folder: code into the database, media into the uploads folder, then re-indexes.
  */
 class Stasimo_Deployer {
 
 	const MAX_FILES = 50000;
 	const MAX_BYTES = 536870912; // 512 MB unpacked.
-
-	/**
-	 * Delete a folder with everything in it.
-	 *
-	 * @param string $dir Absolute folder path.
-	 */
-	private static function rrmdir( $dir ) {
-		Stasimo_Files::remove_dir( $dir );
-	}
 
 	/**
 	 * Executable-looking names are refused even with an allowed last extension (shell.php.png, x.phtml.css ...).
@@ -32,20 +23,6 @@ class Stasimo_Deployer {
 	 */
 	private static function is_dangerous_name( $name ) {
 		return (bool) preg_match( '/\.(php[0-9]*|phtml|pht|phar|cgi|pl|py|rb|sh|asp|aspx|jsp|htaccess)(\.|$)/i', basename( $name ) );
-	}
-
-	/**
-	 * The mount folder must sit inside the base folder: a deploy renames and deletes it.
-	 *
-	 * @param string $dir Absolute mount folder.
-	 * @return bool
-	 */
-	private static function dir_is_safe( $dir ) {
-		if ( apply_filters( 'stasimo_allow_external_dirs', false ) ) {
-			return '' !== $dir && '/' !== $dir;
-		}
-		$base = Stasimo_Mounts::base_dir();
-		return 0 === strpos( $dir, $base . '/' ) && false === strpos( $dir, '..' ) && strlen( $dir ) > strlen( $base ) + 1;
 	}
 
 	/**
@@ -161,31 +138,44 @@ class Stasimo_Deployer {
 			$actual += $real;
 		}
 
-		$dir = Stasimo_Mounts::dir( $m );
-		if ( ! self::dir_is_safe( $dir ) ) {
-			$zip->close();
-			return new WP_Error( 'stasimo_dir', __( 'The mount folder is outside the allowed location.', 'stasimo-static-site-mount' ) );
+		$rels = array();
+		foreach ( $keep as $i => $name ) {
+			$rels[ $i ] = '' !== $strip ? substr( $name, strlen( $strip ) ) : $name;
 		}
-		Stasimo_Mounts::prepare_base_dir();
-		wp_mkdir_p( dirname( $dir ) );
-		$work = $dir . '.stasimo-new-' . wp_generate_password( 6, false );
-		$old  = $dir . '.stasimo-old-' . wp_generate_password( 6, false );
-		if ( ! wp_mkdir_p( $work ) ) {
+		if ( ! in_array( 'index.html', $rels, true ) ) {
 			$zip->close();
-			return new WP_Error( 'stasimo_mkdir', __( 'Could not create a temporary folder.', 'stasimo-static-site-mount' ) );
+			return new WP_Error( 'stasimo_noindex', __( 'The build has no index.html at its top level, nothing was changed.', 'stasimo-static-site-mount' ) );
 		}
-		$done = $zip->extractTo( $work, array_map( array( $zip, 'getNameIndex' ), array_keys( $keep ) ) );
+
+		// Code files go into the database. Only media files are written to the plugin's uploads folder; nothing is extracted as a whole.
+		$build  = Stasimo_Store::new_build();
+		$max_db = Stasimo_Store::max_db_file();
+		$media  = self::media_dir( $m, $build );
+		if ( is_wp_error( $media ) ) {
+			$zip->close();
+			return $media;
+		}
+		foreach ( $rels as $i => $rel ) {
+			$st = $zip->statIndex( $i );
+			if ( Stasimo_Store::is_media( $rel ) ) {
+				$ok = self::copy_media( $media, $rel, 'zip://' . $zip_path . '#' . $zip->getNameIndex( $i ), $zip, $i );
+			} elseif ( (int) $st['size'] > $max_db ) {
+				$ok = self::too_big( $rel, $max_db );
+			} else {
+				$ok = Stasimo_Store::put( $m['slug'], $build, $rel, (string) $zip->getFromIndex( $i ), (int) $st['mtime'] );
+			}
+			if ( is_wp_error( $ok ) ) {
+				$zip->close();
+				Stasimo_Store::discard( $m['slug'], $build );
+				return $ok;
+			}
+		}
 		$zip->close();
-		if ( ! $done ) {
-			self::rrmdir( $work );
-			return new WP_Error( 'stasimo_write', __( 'Could not write extracted files.', 'stasimo-static-site-mount' ) );
-		}
-		$src = '' !== $strip ? $work . '/' . rtrim( $strip, '/' ) : $work;
-		return self::swap( $m, $dir, $src, $old, count( $keep ), $work );
+		return self::publish( $m, $build, count( $rels ) );
 	}
 
 	/**
-	 * Deploy from a folder on the same server (used by WP-CLI).
+	 * Deploy from a folder on the same server (used by WP-CLI). The source folder is only read.
 	 *
 	 * @param array  $m   Mount.
 	 * @param string $src Absolute path of the source folder.
@@ -195,67 +185,115 @@ class Stasimo_Deployer {
 		if ( ! $src || ! is_dir( $src ) ) {
 			return new WP_Error( 'stasimo_src', __( 'Source folder not found.', 'stasimo-static-site-mount' ) );
 		}
-		$types = Stasimo_Server::mime_types();
-		$dir   = Stasimo_Mounts::dir( $m );
-		if ( ! self::dir_is_safe( $dir ) ) {
-			return new WP_Error( 'stasimo_dir', __( 'The mount folder is outside the allowed location.', 'stasimo-static-site-mount' ) );
+		if ( ! is_file( $src . '/index.html' ) ) {
+			return new WP_Error( 'stasimo_noindex', __( 'The build has no index.html at its top level, nothing was changed.', 'stasimo-static-site-mount' ) );
 		}
-		Stasimo_Mounts::prepare_base_dir();
-		wp_mkdir_p( dirname( $dir ) );
-		$tmp     = $dir . '.stasimo-new-' . wp_generate_password( 6, false );
-		$old     = $dir . '.stasimo-old-' . wp_generate_password( 6, false );
-		$written = 0;
-		wp_mkdir_p( $tmp );
-		$it = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $src, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::LEAVES_ONLY );
+		$types = Stasimo_Server::mime_types();
+		$files = array();
+		$total = 0;
+		$it    = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $src, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::LEAVES_ONLY );
 		foreach ( $it as $f ) {
 			$rel = ltrim( str_replace( '\\', '/', substr( $f->getPathname(), strlen( $src ) ) ), '/' );
-			if ( preg_match( '#(^|/)\.#', $rel ) ) {
+			if ( preg_match( '#(^|/)\.#', $rel ) || $f->isLink() ) {
 				continue;
 			}
 			$ext = strtolower( pathinfo( $rel, PATHINFO_EXTENSION ) );
 			if ( ! isset( $types[ $ext ] ) || self::is_dangerous_name( $rel ) ) {
-				self::rrmdir( $tmp );
 				return new WP_Error( 'stasimo_ext', sprintf( /* translators: %s file name */ __( 'File type not allowed: %s', 'stasimo-static-site-mount' ), $rel ) );
 			}
-			wp_mkdir_p( dirname( $tmp . '/' . $rel ) );
-			Stasimo_Files::fs()->copy( $f->getPathname(), $tmp . '/' . $rel, true );
-			++$written;
+			$total += (int) $f->getSize();
+			if ( count( $files ) >= self::MAX_FILES || $total > self::MAX_BYTES ) {
+				return new WP_Error( 'stasimo_toobig', __( 'The folder is too large.', 'stasimo-static-site-mount' ) );
+			}
+			$files[ $rel ] = $f;
 		}
-		return self::swap( $m, $dir, $tmp, $old, $written, $tmp );
+
+		$build  = Stasimo_Store::new_build();
+		$max_db = Stasimo_Store::max_db_file();
+		$media  = self::media_dir( $m, $build );
+		if ( is_wp_error( $media ) ) {
+			return $media;
+		}
+		$fs = Stasimo_Files::fs();
+		foreach ( $files as $rel => $f ) {
+			if ( Stasimo_Store::is_media( $rel ) ) {
+				$ok = self::copy_media( $media, $rel, $f->getPathname() );
+			} elseif ( (int) $f->getSize() > $max_db ) {
+				$ok = self::too_big( $rel, $max_db );
+			} else {
+				$ok = Stasimo_Store::put( $m['slug'], $build, $rel, (string) $fs->get_contents( $f->getPathname() ), (int) $f->getMTime() );
+			}
+			if ( is_wp_error( $ok ) ) {
+				Stasimo_Store::discard( $m['slug'], $build );
+				return $ok;
+			}
+		}
+		return self::publish( $m, $build, count( $files ) );
 	}
 
 	/**
-	 * Put a finished build in place. $src is the folder with index.html, $work the temporary folder that contains it (deleted afterwards).
+	 * Media folder of a new build inside the plugin's uploads folder.
+	 *
+	 * @param array  $m     Mount.
+	 * @param string $build Build id.
+	 * @return string|WP_Error
+	 */
+	private static function media_dir( array $m, $build ) {
+		Stasimo_Mounts::prepare_base_dir();
+		$dir = Stasimo_Store::media_dir( $m['slug'], $build );
+		if ( '' === $dir || ! wp_mkdir_p( $dir ) ) {
+			return new WP_Error( 'stasimo_mkdir', __( 'Could not create a folder in the uploads directory.', 'stasimo-static-site-mount' ) );
+		}
+		return $dir;
+	}
+
+	/**
+	 * Copy one media file into the media folder of a build, from a source folder or straight out of the archive (zip:// stream).
+	 * A copy streams the file, so a large video does not count against the memory limit.
+	 *
+	 * @param string          $dir  Media folder of the build.
+	 * @param string          $rel  Checked path inside the build.
+	 * @param string          $from Source path or zip:// URL.
+	 * @param ZipArchive|null $zip  Open archive, used when the entry name cannot be addressed as a zip:// URL.
+	 * @param int             $i    Index of the entry in the archive.
+	 * @return true|WP_Error
+	 */
+	private static function copy_media( $dir, $rel, $from, $zip = null, $i = 0 ) {
+		$dest = $dir . '/' . $rel;
+		$fail = new WP_Error( 'stasimo_write', sprintf( /* translators: %s file name */ __( 'Could not write %s.', 'stasimo-static-site-mount' ), $rel ) );
+		if ( ! wp_mkdir_p( dirname( $dest ) ) ) {
+			return $fail;
+		}
+		if ( $zip && false !== strpos( $rel, '#' ) ) { // "#" separates the entry in a zip:// URL.
+			$data = $zip->getFromIndex( $i );
+			return false !== $data && Stasimo_Files::fs()->put_contents( $dest, $data, FS_CHMOD_FILE ) ? true : $fail;
+		}
+		return Stasimo_Files::fs()->copy( $from, $dest, true, FS_CHMOD_FILE ) ? true : $fail;
+	}
+
+	/**
+	 * Error for a code file that is larger than the database accepts.
+	 *
+	 * @param string $rel File path.
+	 * @param int    $max Limit in bytes.
+	 * @return WP_Error
+	 */
+	private static function too_big( $rel, $max ) {
+		/* translators: 1: file name, 2: size limit */
+		return new WP_Error( 'stasimo_toobig', sprintf( __( '%1$s is larger than %2$s, the most the database accepts for one file.', 'stasimo-static-site-mount' ), $rel, size_format( $max ) ) );
+	}
+
+	/**
+	 * Make a fully stored build live, delete the previous one and re-index.
 	 *
 	 * @param array  $m       Mount.
-	 * @param string $dir     Final mount folder.
-	 * @param string $src     Folder that holds the new build (with index.html).
-	 * @param string $old     Where the previous build is moved to.
-	 * @param int    $written Number of files in the new build.
-	 * @param string $work    Temporary folder that contains $src, deleted afterwards.
+	 * @param string $build   Build id.
+	 * @param int    $written Number of files in the build.
+	 * @return array|WP_Error
 	 */
-	private static function swap( array $m, $dir, $src, $old, $written, $work ) {
-		$fs = Stasimo_Files::fs();
-		if ( ! is_file( $src . '/index.html' ) ) {
-			self::rrmdir( $work );
-			return new WP_Error( 'stasimo_noindex', __( 'The build has no index.html at its top level, nothing was changed.', 'stasimo-static-site-mount' ) );
-		}
-		// Folder moves are renames inside one filesystem, so a visitor sees either the old build or the new one.
-		if ( is_dir( $dir ) && ! $fs->move( $dir, $old, false ) ) {
-			self::rrmdir( $work );
-			return new WP_Error( 'stasimo_swap', __( 'Could not replace the existing folder.', 'stasimo-static-site-mount' ) );
-		}
-		if ( ! $fs->move( $src, $dir, false ) ) {
-			if ( is_dir( $old ) ) {
-				$fs->move( $old, $dir, false );
-			}
-			self::rrmdir( $work );
-			return new WP_Error( 'stasimo_swap', __( 'Could not activate the new build.', 'stasimo-static-site-mount' ) );
-		}
-		if ( $work !== $src ) {
-			self::rrmdir( $work ); // the wrapper folder of an unwrapped build.
-		}
-		self::rrmdir( $old );
+	private static function publish( array $m, $build, $written ) {
+		// Switching the pointer is one option update, so a visitor sees either the old build or the new one.
+		Stasimo_Store::activate( $m['slug'], $build );
 		$idx = Stasimo_Indexer::reindex( $m );
 		if ( is_wp_error( $idx ) ) {
 			return $idx;
